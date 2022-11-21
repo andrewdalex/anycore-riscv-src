@@ -175,11 +175,11 @@ end
 
 reg amoStall;
 always_comb begin
-	int i;
-	amoStall = 0;
-	for (i = 0; i < `DISPATCH_WIDTH; i++) begin
-			amoStall = amoStall | disPacket_i[i].isAtom;
-	end
+  int i;
+  amoStall = 0;
+  for (i = 0; i < `DISPATCH_WIDTH; i++) begin
+    amoStall = amoStall | disPacket_i[i].isAtom;
+  end
 end
 
 

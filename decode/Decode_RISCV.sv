@@ -96,7 +96,7 @@ begin
     ibPacket0_o.isLoad         = instLoad_0;
     ibPacket0_o.isStore        = instStore_0;
     ibPacket0_o.isAtom         = instAtom_0;
-		ibPacket0_o.amo_op         = instAmoOp_0;
+    ibPacket0_o.amo_op         = instAmoOp_0;
     ibPacket0_o.isCSR          = instCSR_0;
     ibPacket0_o.isScall        = instScall_0;
     ibPacket0_o.isSbreak       = instSbreak_0;
@@ -216,7 +216,7 @@ begin
         instLoad_0         = 1'b1;
         instAtom_0         = 1'b1;
         instAmoOp_0        = AMO_LR;
-			end
+      end
 
       `FN5_SC: begin
         instLogical1_0[0]  = 1'b1;
@@ -226,8 +226,8 @@ begin
         instStore_0        = 1'b1;
         instAtom_0         = 1'b1;
         instAmoOp_0        = AMO_SC;
-			end
-		endcase
+      end
+    endcase
   end
 
 
@@ -470,3 +470,4 @@ if(instDest_0[`SIZE_RMT_LOG:1] == 0)
 end
 
 endmodule
+
