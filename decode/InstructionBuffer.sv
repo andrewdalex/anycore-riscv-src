@@ -134,6 +134,8 @@ begin
     renPacket_o[i].isSret       = instBufferReady_o & instValidMask[i] & renPacket_t[i].isSret       ; 
     renPacket_o[i].isMret       = instBufferReady_o & instValidMask[i] & renPacket_t[i].isMret       ;
     renPacket_o[i].skipIQ       = instBufferReady_o & instValidMask[i] & renPacket_t[i].skipIQ       ; 
+    renPacket_o[i].isAtom       = instBufferReady_o & instValidMask[i] & renPacket_t[i].isAtom       ;
+
   end
 end
 

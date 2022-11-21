@@ -173,6 +173,16 @@ begin
 end
 
 
+reg amoStall;
+always_comb begin
+	int i;
+	amoStall = 0;
+	for (i = 0; i < `DISPATCH_WIDTH; i++) begin
+			amoStall = amoStall | disPacket_i[i].isAtom;
+	end
+end
+
+
 /***********************************************************************************
 * Check for room in LDQ, STQ, IQ and AL for new instructions.
 ***********************************************************************************/
@@ -188,7 +198,7 @@ assign loadStall  = ((loadQueueCnt_i  + loadCnt)         > lsqSize);
 assign storeStall = ((storeQueueCnt_i + storeCnt)        > lsqSize);
 assign alStall    = ((activeListCnt_i + numDispatchLaneActive) > alSize);
 
-assign stall      = (loadStall | storeStall | iqStall | alStall);
+assign stall      = (loadStall | storeStall | iqStall | alStall | amoStall);
 
 `ifdef PERF_MON
   assign loadStall_o  = loadStall ;

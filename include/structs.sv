@@ -2,17 +2,17 @@
 #                        NORTH CAROLINA STATE UNIVERSITY
 #
 #                              AnyCore Project
-# 
+#
 # AnyCore written by NCSU authors Rangeen Basu Roy Chowdhury and Eric Rotenberg.
-# 
-# AnyCore is based on FabScalar which was written by NCSU authors Niket K. 
+#
+# AnyCore is based on FabScalar which was written by NCSU authors Niket K.
 # Choudhary, Brandon H. Dwiel, and Eric Rotenberg.
-# 
-# AnyCore also includes contributions by NCSU authors Elliott Forbes, Jayneel 
-# Gandhi, Anil Kumar Kannepalli, Sungkwan Ku, Hiran Mayukh, Hashem Hashemi 
-# Najaf-abadi, Sandeep Navada, Tanmay Shah, Ashlesha Shastri, Vinesh Srinivasan, 
+#
+# AnyCore also includes contributions by NCSU authors Elliott Forbes, Jayneel
+# Gandhi, Anil Kumar Kannepalli, Sungkwan Ku, Hiran Mayukh, Hashem Hashemi
+# Najaf-abadi, Sandeep Navada, Tanmay Shah, Ashlesha Shastri, Vinesh Srinivasan,
 # and Salil Wadhavkar.
-# 
+#
 # AnyCore is distributed under the BSD license.
 *******************************************************************************/
 
@@ -53,8 +53,8 @@ typedef struct packed {
 
 typedef struct packed {
 	logic [31:0]                          seqNo;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;  
-  logic                                 exception;  
+  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;
+  logic                                 exception;
 	logic [`SIZE_PC-1:0]                  pc;
 	logic [`SIZE_INSTRUCTION-1:0]         inst;
 	logic                                 btbHit;
@@ -68,8 +68,8 @@ typedef struct packed {
 
 typedef struct packed {
 	logic [31:0]                          seqNo;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;  
-  logic                                 exception;  
+  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;
+  logic                                 exception;
 	logic [`SIZE_PC-1:0]                  pc;
 	logic [`SIZE_INSTRUCTION-1:0]         inst;
 
@@ -93,11 +93,28 @@ typedef struct packed {
 	logic                                 valid;
 } phys_reg;
 
+// typedef enum logic [3:0] {
+// 	AMO_NONE =4'b0000,
+// 	AMO_LR   =4'b0001,
+// 	AMO_SC   =4'b0010,
+// 	AMO_SWAP =4'b0011,
+// 	AMO_ADD  =4'b0100,
+// 	AMO_AND  =4'b0101,
+// 	AMO_OR   =4'b0110,
+// 	AMO_XOR  =4'b0111,
+// 	AMO_MAX  =4'b1000,
+// 	AMO_MAXU =4'b1001,
+// 	AMO_MIN  =4'b1010,
+// 	AMO_MINU =4'b1011,
+// 	AMO_CAS1 =4'b1100, // unused, not part of riscv spec, but provided in OpenPiton
+// 	AMO_CAS2 =4'b1101  // unused, not part of riscv spec, but provided in OpenPiton
+// } amo_t;
+
 typedef struct packed {
 	logic [31:0]                          seqNo;
 	logic [`SIZE_PC-1:0]                  pc;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;  
-  logic                                 exception;  
+  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;
+  logic                                 exception;
 	logic [`SIZE_INSTRUCTION-1:0]         inst;
 	logic [`INST_TYPES_LOG-1:0]          fu;	//Changes: Mohit (Changed from incorrect define ISSUE_WIDTH_LOG to INST_TYPES_LOG )
 
@@ -124,6 +141,8 @@ typedef struct packed {
 	logic                                 isSret;
 	logic                                 isMret;
 	logic                                 skipIQ;
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic [`BRANCH_TYPE_LOG-1:0]          ctrlType;
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
@@ -137,8 +156,8 @@ typedef struct packed {
 
 typedef struct packed {
 	logic [31:0]                          seqNo;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]           exceptionCause;  
-  logic                                 exception;  
+  logic [`EXCEPTION_CAUSE_LOG-1:0]           exceptionCause;
+  logic                                 exception;
 	logic [`SIZE_PC-1:0]                  pc;
 	logic [`SIZE_INSTRUCTION-1:0]         inst;
 	logic [`INST_TYPES_LOG-1:0]          fu;	//Changes: Mohit (Changed from incorrect define ISSUE_WIDTH_LOG to INST_TYPES_LOG )
@@ -168,6 +187,8 @@ typedef struct packed {
 	logic                                 isSret;
 	logic                                 isMret;
 	logic                                 skipIQ;
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic [`BRANCH_TYPE_LOG-1:0]          ctrlType;
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
@@ -177,7 +198,7 @@ typedef struct packed {
   logic                                 valid;
 } disPkt;
 
-`define DIS_PKT_SIZE  (32+``EXCEPTION_CAUSE_LOG+1+SIZE_PC+`SIZE_INSTRUCTION+`ISSUE_WIDTH_LOG+`SIZE_RMT_LOG+3*(`SIZE_PHYSICAL_LOG+1)+(`SIZE_IMMEDIATE+1)+1+1`LDST_TYPES_LOG+5+`BRANCH_TYPE_LOG+`SIZE_CTI_LOG+`SIZE_PC+1+1) 
+`define DIS_PKT_SIZE  (32+``EXCEPTION_CAUSE_LOG+1+SIZE_PC+`SIZE_INSTRUCTION+`ISSUE_WIDTH_LOG+`SIZE_RMT_LOG+3*(`SIZE_PHYSICAL_LOG+1)+(`SIZE_IMMEDIATE+1)+1+1`LDST_TYPES_LOG+5+`BRANCH_TYPE_LOG+`SIZE_CTI_LOG+`SIZE_PC+1+1)
 
 typedef struct packed {
 	logic [31:0]                          seqNo;
@@ -220,12 +241,12 @@ typedef struct packed {
   logic                                 valid;
 } iqPkt;
 
-`define IQ_PKT_SIZE  (32+1+`SIZE_PC+`SIZE_INSTRUCTION+`ISSUE_WIDTH_LOG+`SIZE_RMT_LOG+3*(`SIZE_PHYSICAL_LOG+1)+(`SIZE_IMMEDIATE+1)+1`SIZE_LSQ_LOG+`SIZE_ACTIVELIST_LOG+1+1+`LDST_TYPES_LOG+1+`BRANCH_TYPE_LOG+`SIZE_CTI_LOG+`SIZE_PC+1+1) 
+`define IQ_PKT_SIZE  (32+1+`SIZE_PC+`SIZE_INSTRUCTION+`ISSUE_WIDTH_LOG+`SIZE_RMT_LOG+3*(`SIZE_PHYSICAL_LOG+1)+(`SIZE_IMMEDIATE+1)+1`SIZE_LSQ_LOG+`SIZE_ACTIVELIST_LOG+1+1+`LDST_TYPES_LOG+1+`BRANCH_TYPE_LOG+`SIZE_CTI_LOG+`SIZE_PC+1+1)
 
 typedef struct packed {
 	logic [31:0]                          seqNo;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;  
-  logic                                 exception;  
+  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;
+  logic                                 exception;
 	logic [`SIZE_PC-1:0]                  pc;
 
 	logic [`SIZE_RMT_LOG-1:0]             logDest;
@@ -334,7 +355,7 @@ typedef struct packed {
 `define FU_PKT_SIZE 32+`SIZE_PC+`SIZE_INSTRUCTION+`SIZE_RMT_LOG+1+3*(`SIZE_PHYSICAL_LOG)+2*(`SIZE_DATA)+`SIZE_LSQ_LOG+`SIZE_ACTIVELIST_LOG+`SIZE_IMMEDIATE+1+1+1+`BRANCH_TYPE_LOG+`SIZE_CTI_LOG+`SIZE_PC+1+1
 
 typedef struct packed {
-  
+
 	logic [`SIZE_RMT_LOG-1:0]             logDest;
 	logic [`SIZE_PHYSICAL_LOG-1:0]        tag;
 	logic [63:0]                          data;
@@ -436,7 +457,7 @@ typedef struct packed {
 typedef struct packed {
 	logic [31:0]                          seqNo;
 	logic [`SIZE_ACTIVELIST_LOG-1:0]      alID;
-  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause; 
+  logic [`EXCEPTION_CAUSE_LOG-1:0]      exceptionCause;
   logic                                 exception;
   logic                                 valid;
 } exceptionPkt;
@@ -453,4 +474,3 @@ typedef struct packed {
 } fpexcptPkt;
 
 `endif // STRUCTS_SVH
-
