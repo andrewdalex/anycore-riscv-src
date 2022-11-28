@@ -807,6 +807,7 @@ InstructionBuffer instBuf (
   // Moreover the size is not being reconfigured and flush is not needed.
 	.flush_i              (recoverFlag | exceptionFlag | resetFetch_i),  
 	.commitCsr_i          (commitCsr),
+	.commitAmoOp_i        (1'b0), // TODO change once amo is finished
 
 	.decodeReady_i        (decodeReady),
 

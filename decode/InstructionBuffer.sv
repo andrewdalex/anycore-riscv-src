@@ -41,6 +41,7 @@ module InstructionBuffer(
 	*/
 	input                                 stall_i,
 	input                                 commitCsr_i,
+	input                                 commitAmoOp_i,
 
 	input                                 decodeReady_i,
 
@@ -103,6 +104,10 @@ logic                                   stallForCsr;
 logic                                   excptInstDispatched;
 logic                                   stallForExcpt;
 
+// logic used to dispatch amo ops atomically
+logic                                   stallForAmoOp;
+logic                                   dispatchedAmoOp;
+
 // Create a vector indicate valid instructions in every read bundle
 always @(*)
 begin
@@ -148,7 +153,9 @@ begin
   csrInstDispatched           = renPacket_t[0].isCSR & renPacketValid[0] & ~stall_i & (instCount >= numDispatchLaneActive);
   instValidMask               = {`DISPATCH_WIDTH{1'b0}};
   // First inst is always valid irrespective of whether it is a CSR inst
-  instValidMask[0]            = 1'b1 & ~stall_i; 
+  instValidMask[0]            = 1'b1 & ~stall_i;
+	dispatchedAmoOp             = renPacket_t[0].isAtom & renPacketValid[0] & ~stall_i & (instCount >= numDispatchLaneActive);
+	 
 
   for(i=1; i<`DISPATCH_WIDTH; i++)
   begin
@@ -156,9 +163,10 @@ begin
     // immediately preceding instruction is not a CSR inst. This ensures that the
     // first occurence of a CSR inst in the bundle is valid and everything after
     // that is invalid.
-    instValidMask[i]          = instValidMask[i-1] & ~(renPacket_t[i-1].isCSR | renPacket_t[i-1].exception) & renPacketValid[i-1] & ~stall_i;
+    instValidMask[i]          = instValidMask[i-1] & ~(renPacket_t[i-1].isCSR | renPacket_t[i-1].exception | renPacket_t[i].isAtom) & renPacketValid[i-1] & ~stall_i;
     //Changes: Mohit (We need to fetch entire bundle before stalling)
     csrInstDispatched         = csrInstDispatched | renPacket_t[i].isCSR & renPacketValid[i] & ~stall_i & (instCount >= numDispatchLaneActive);
+		dispatchedAmoOp           = dispatchedAmoOp | renPacket_t[i].isAtom & renPacketValid[i] & ~stall_i & (instCount >= numDispatchLaneActive);
   end
 end
 
@@ -170,6 +178,22 @@ begin
   for(i=0;i<`DISPATCH_WIDTH;i++)
   begin
     dispatchedInstCount = dispatchedInstCount + renPacket_o[i].valid;
+  end
+end
+
+always_ff @(posedge clk or posedge reset)
+begin
+  if(reset)
+  begin
+    stallForAmoOp <= 1'b0;
+  end
+  else if(flush_i | commitAmoOp_i)
+  begin
+    stallForAmoOp <= 1'b0;
+  end
+  else if(dispatchedAmoOp & ~stall_i)
+  begin
+    stallForAmoOp <= 1'b1;
   end
 end
 

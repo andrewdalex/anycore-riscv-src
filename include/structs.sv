@@ -168,8 +168,8 @@ typedef struct packed {
 	logic                                 isSret;
 	logic                                 isMret;
 	logic                                 skipIQ;
-        logic                                 isAtom;
-        amo_t                                 amo_op;
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic [`BRANCH_TYPE_LOG-1:0]          ctrlType;
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
