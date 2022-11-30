@@ -173,7 +173,7 @@ begin
 end
 
 
-reg amoStall;
+logic amoStall;
 always_comb begin
   int i;
   amoStall = 0;
@@ -198,7 +198,7 @@ assign loadStall  = ((loadQueueCnt_i  + loadCnt)         > lsqSize);
 assign storeStall = ((storeQueueCnt_i + storeCnt)        > lsqSize);
 assign alStall    = ((activeListCnt_i + numDispatchLaneActive) > alSize);
 
-assign stall      = (loadStall | storeStall | iqStall | alStall | amoStall);
+assign stall      = (loadStall | storeStall | iqStall | alStall);
 
 `ifdef PERF_MON
   assign loadStall_o  = loadStall ;
@@ -258,7 +258,8 @@ ExePipeScheduler exePipeSched (
 assign dispatchReady_o    = ~stall & renameReady_i;
 
 /* Stalls IB and Rename */
-assign backEndFull_o      = stall;
+// only stall frontend on atomic op so that LSQ drains
+assign backEndFull_o      = stall | amoStall;
 
 
 /***********************************************************************************
@@ -294,6 +295,8 @@ begin
     iqPacket_o[i].alID         = alID_i[i];
 		iqPacket_o[i].isLoad       = disPacket_i[i].isLoad;
 		iqPacket_o[i].isStore      = disPacket_i[i].isStore;
+		iqPacket_o[i].isAtom       = disPacket_i[i].isAtom;
+		iqPacket_o[i].amo_op       = disPacket_i[i].amo_op;
 		iqPacket_o[i].isCSR        = disPacket_i[i].isCSR;
 		iqPacket_o[i].ldstSize     = disPacket_i[i].ldstSize;
 		iqPacket_o[i].isSimple     = isSimple[i];
@@ -328,6 +331,8 @@ begin
 		alPacket_o[i].phyDestValid   = disPacket_i[i].phyDestValid;
 		alPacket_o[i].isLoad         = disPacket_i[i].isLoad;
 		alPacket_o[i].isStore        = disPacket_i[i].isStore;
+		alPacket_o[i].isAtom         = disPacket_i[i].isAtom;
+		alPacket_o[i].amo_op         = disPacket_i[i].amo_op;
 		alPacket_o[i].isCSR          = disPacket_i[i].isCSR;
 		alPacket_o[i].isScall        = disPacket_i[i].isScall;
 		alPacket_o[i].isSbreak       = disPacket_i[i].isSbreak;

@@ -129,6 +129,9 @@ typedef struct packed {
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
 	logic [`SIZE_PC-1:0]                  predNPC;
 	logic                                 predDir;
+	
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic                                 valid;
 } renPkt;
@@ -214,6 +217,9 @@ typedef struct packed {
 	logic                                 isFP;
 	logic                                 isCSR;
 
+  logic                                 isAtom;
+  amo_t                                 amo_op;
+
 	logic [`BRANCH_TYPE_LOG-1:0]          ctrlType;
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
 	logic [`SIZE_PC-1:0]                  predNPC;
@@ -244,6 +250,9 @@ typedef struct packed {
 	logic                                 isSret;
 	logic                                 isMret;
 	logic                                 isFP;	//Changes: Mohit(Added isFP flag to alpacket)
+  
+  logic                                 isAtom;
+  amo_t                                 amo_op;
 
   logic                                 valid;
 } alPkt;

@@ -53,6 +53,8 @@ module InstructionBuffer(
 	*/
 	output                                instBufferFull_o,
   output                                stallForCsr_o,
+  //TODO: Andrew -> might not actually need this signal the CSR signal is unused
+  output                                stallForAmo_o,
 
   // Goes to Dispatch indicating sufficient number of instructions in the buffer
 	output reg                            instBufferReady_o,
@@ -196,6 +198,8 @@ begin
     stallForAmoOp <= 1'b1;
   end
 end
+
+assign stallForAmo_o = stallForAmoOp;
 
 
 always_ff @(posedge clk or posedge reset)
