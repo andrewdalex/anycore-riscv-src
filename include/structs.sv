@@ -217,8 +217,8 @@ typedef struct packed {
 	logic                                 isFP;
 	logic                                 isCSR;
 
-  logic                                 isAtom;
-  amo_t                                 amo_op;
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic [`BRANCH_TYPE_LOG-1:0]          ctrlType;
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
@@ -251,8 +251,8 @@ typedef struct packed {
 	logic                                 isMret;
 	logic                                 isFP;	//Changes: Mohit(Added isFP flag to alpacket)
   
-  logic                                 isAtom;
-  amo_t                                 amo_op;
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
   logic                                 valid;
 } alPkt;
@@ -297,6 +297,9 @@ typedef struct packed {
 	logic [`SIZE_PC-1:0]                  predNPC;
 	logic                                 predDir;
 
+	logic                                 isAtom;
+	amo_t                                 amo_op;
+
 	logic                                 valid;
 } payloadPkt;
 
@@ -338,6 +341,9 @@ typedef struct packed {
 	logic [`SIZE_CTI_LOG-1:0]             ctiID;
 	logic [`SIZE_PC-1:0]                  predNPC;
 	logic                                 predDir;
+
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 
 	logic                                 valid;
 } fuPkt;
@@ -428,8 +434,9 @@ typedef struct packed {
 	logic [`SIZE_ACTIVELIST_LOG-1:0]      alID;
 
 	logic                                 valid;
-  logic                                 isAtom;
-  amo_t                                 amo_op;
+
+	logic                                 isAtom;
+	amo_t                                 amo_op;
 } memPkt;
 
 typedef struct packed {

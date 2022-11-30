@@ -336,6 +336,8 @@ begin
         payloadWrData[i].predNPC      = iqPacket_i[i].predNPC;
         payloadWrData[i].isSimple     = iqPacket_i[i].isSimple;
         payloadWrData[i].isFP         = iqPacket_i[i].isFP;
+        payloadWrData[i].amo_op       = iqPacket_i[i].amo_op;
+        payloadWrData[i].isAtom       = iqPacket_i[i].isAtom;
         payloadWrData[i].isCSR        = iqPacket_i[i].isCSR;
         payloadWrData[i].ctrlType     = iqPacket_i[i].ctrlType;
         payloadWrData[i].ctiID        = iqPacket_i[i].ctiID;
