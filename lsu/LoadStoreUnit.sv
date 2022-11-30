@@ -219,6 +219,24 @@ wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 assign stqCount_o                    = stqCount;
 assign ldqCount_o                    = ldqCount;
 
+ariane_pkg::amo_req_t  amo_req_o;
+ariane_pkg::amo_resp_t amo_resp_i;
+logic ready;
+
+AtomicBuffer amo_buffer (
+	.clk_i (clk),
+	.rst_ni (reset),
+	.valid_i (memPacket_i.isAtom & memPacket_i.valid),
+	.ready_o (ready),
+	.amo_op_i (memPacket_i.amo_op),
+	.paddr_i (memPacket_i.address),
+	.data_i (memPacket_i.src2Data),
+	.data_size_i (memPacket_i.ldstSize),
+	.amo_req_o (amo_req_o),
+	.amo_resp_i (amo_resp_i),
+	.no_mem_ops_pending_i (1'b0)
+);
+
 /* Instantiate lsu control and datapath here */
 
 LSUControl control (     

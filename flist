@@ -86,6 +86,7 @@ lsu/LSUDatapath.sv
 lsu/LoadStoreUnit.sv
 lsu/STX_path.sv
 lsu/STX_path_structured.sv
+lsu/AtomicBuffer.sv
 rams/ALCTRL_RAM.sv
 rams/ALDATA_RAM.sv
 rams/ALNPC_RAM.sv
