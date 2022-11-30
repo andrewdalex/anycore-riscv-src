@@ -223,6 +223,15 @@ ariane_pkg::amo_req_t  amo_req_o;
 ariane_pkg::amo_resp_t amo_resp_i;
 logic ready;
 
+logic queueDrained;
+always_comb begin
+	queueDrained = 1'b0;
+	if (stqCount == 0 && ldqCount == 0)
+	begin
+		queueDrained = 1'b1;
+	end
+end
+
 AtomicBuffer amo_buffer (
 	.clk_i (clk),
 	.rst_ni (reset),
@@ -234,7 +243,7 @@ AtomicBuffer amo_buffer (
 	.data_size_i (memPacket_i.ldstSize),
 	.amo_req_o (amo_req_o),
 	.amo_resp_i (amo_resp_i),
-	.no_mem_ops_pending_i (1'b0)
+	.no_mem_ops_pending_i (queueDrained)
 );
 
 /* Instantiate lsu control and datapath here */

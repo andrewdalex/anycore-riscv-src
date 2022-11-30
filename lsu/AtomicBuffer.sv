@@ -37,7 +37,7 @@ fifo_v3 #(
 ) i_amo_fifo (
   .clk_i        ( clk_i            ),
   .rst_ni       ( rst_ni           ),
-  .flush_i      ( flush_amo_buffer ),
+  .flush_i      ( 1'b0 ),
   .testmode_i   ( 1'b0             ),
   .full_o       ( amo_valid        ),
   .empty_o      ( ready_o          ),
