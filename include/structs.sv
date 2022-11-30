@@ -428,6 +428,8 @@ typedef struct packed {
 	logic [`SIZE_ACTIVELIST_LOG-1:0]      alID;
 
 	logic                                 valid;
+  logic                                 isAtom;
+  amo_t                                 amo_op;
 } memPkt;
 
 typedef struct packed {
