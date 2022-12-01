@@ -32,6 +32,9 @@ module DCache_controller(
     input  [`SIZE_PC-1:0]               ldAddr_i,
     input  [`LDST_TYPES_LOG-1:0]        ldSize_i,
     input                               ldSign_i,
+    input                               ldIsReserve_i,
+    
+    output                              mshrFull_o,
     output reg [`SIZE_DATA-1:0]         ldData_o,
     output reg                          ldHit_o,
     output reg                          ldDataValid_o,
@@ -47,6 +50,7 @@ module DCache_controller(
     // cache-to-memory interface for Loads
     output [`DCACHE_BLOCK_ADDR_BITS-1:0]dc2memLdAddr_o,  // memory read address
     output reg                          dc2memLdValid_o, // memory read enable
+    output                              dc2memLdIsReserve_o,
 
     // memory-to-cache interface for Loads
     input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,   // tag of the incoming datadetermine
@@ -264,10 +268,12 @@ module DCache_controller(
   logic                               miss_d2;
   logic                               miss_pulse;
   logic                               missUnderMiss;
+  logic handleLR;
   
   assign miss = ~ldHit;
 
-  assign ldMiss_o = miss & ldEn_i; 
+  assign ldMiss_o = (miss & ldEn_i) | ldIsReserve_i; 
+  assign mshrFull_o = mshr0Valid; // signal not waiting on miss for atomics
   
   always_ff @(posedge clk or posedge reset)
   begin
@@ -275,17 +281,19 @@ module DCache_controller(
     begin
       miss_d1 <= 1'b0;
       miss_d2 <= 1'b0;
+      handleLR <= 1'b0;
     end
     else
     begin
       miss_d1 <= miss & ldEn_i & (~fillValid | (fillValid & ~(fillTag == ld_tag_reg)));
       //miss_d1 <= miss & ldEn_i & ~fillValid;
       // Clear on a fillValid so that a pulse is generated for a pending miss
-      miss_d2 <= miss_d1 & ~fillValid; 
+      miss_d2 <= miss_d1 & ~fillValid;
+      handleLR <= ldIsReserve_i;
     end
   end
   
-  assign miss_pulse = miss_d1 & ~miss_d2;
+  assign miss_pulse = (miss_d1 & ~miss_d2) | handleLR;
   //assign miss_pulse = ldEn_i & miss & ~miss_d1;
   
   // send a request the cycle after ldEn_i goes high is hit is low.
@@ -297,7 +305,7 @@ module DCache_controller(
   assign dc2memLdValid_o       = miss_pulse &  
                                 (~mshr0Valid | 
                                     (fillValid & ~(fillTag == ld_tag_reg)));   // If the line being filled misses again, don't request again 
-  
+  assign dc2memLdIsReserve_o = handleLR;
   /* The following block currently implements a single MSHR.
      It can be easily extended to support a fully associative
      file of MSHRs */

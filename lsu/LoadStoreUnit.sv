@@ -116,6 +116,7 @@ module LSU (
     // cache-to-memory interface for Loads
     output [`DCACHE_BLOCK_ADDR_BITS-1:0]  dc2memLdAddr_o,  // memory read address
     output reg                          dc2memLdValid_o, // memory read enable
+		output dc2memLdIsReserve_o,
 
     // memory-to-cache interface for Loads
     input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,       // tag of the incoming datadetermine
@@ -219,11 +220,11 @@ wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 assign stqCount_o                    = stqCount;
 assign ldqCount_o                    = ldqCount;
 
-ariane_pkg::amo_req_t  amo_req_o;
-ariane_pkg::amo_resp_t amo_resp_i;
+
 logic ready;
 
 logic queueDrained;
+logic mshrFull_o;
 always_comb begin
 	queueDrained = 1'b0;
 	if (stqCount == 0 && ldqCount == 0)
@@ -232,18 +233,26 @@ always_comb begin
 	end
 end
 
+
+lsqPkt amoLsqIn, amoLsqOut;
+memPkt amoMemPktIn, amoMemPktOut;
+logic amoValidO;
+
+//TODO memPacket and LSQ Packet come in at different times
+// so need to buffer both and only release when both are there
 AtomicBuffer amo_buffer (
 	.clk_i (clk),
 	.rst_ni (reset),
 	.valid_i (memPacket_i.isAtom & memPacket_i.valid),
+	.flush_i(dc2memLdIsReserve_o), //clear buffer once we've sent the req off chip
 	.ready_o (ready),
-	.amo_op_i (memPacket_i.amo_op),
-	.paddr_i (memPacket_i.address),
-	.data_i (memPacket_i.src2Data),
-	.data_size_i (memPacket_i.ldstSize),
-	.amo_req_o (amo_req_o),
+	.memPacket_i (amoMemPktIn),
+	.lsqPacket_i (amoLsqIn),
+	.memPacket_o (amoMemPktOut),
+	.lsqPacket_o (amoLsqOut),
+	.valid_o (amoValidO),
 	.amo_resp_i (amo_resp_i),
-	.no_mem_ops_pending_i (queueDrained)
+	.no_mem_ops_pending_i (queueDrained & ~mshrFull_o)
 );
 
 /* Instantiate lsu control and datapath here */
@@ -321,7 +330,8 @@ LSUDatapath datapath (
  
   .dc2memLdAddr_o               (dc2memLdAddr_o     ), // memory read address
   .dc2memLdValid_o              (dc2memLdValid_o    ), // memory read enable
-                                                   
+  .dc2memLdIsReserve_o(dc2memLdIsReserve_o),
+
   .mem2dcLdTag_i                (mem2dcLdTag_i      ), // tag of the incoming datadetermine
   .mem2dcLdIndex_i              (mem2dcLdIndex_i    ), // index of the incoming data
   .mem2dcLdData_i               (mem2dcLdData_i     ), // requested data
@@ -359,6 +369,8 @@ LSUDatapath datapath (
 	.lsqPacket_i                  (lsqPacket_i),
 	
 	.memPacket_i                  (memPacket_i),
+	.ldIsReserve_i(),
+	.mshrFull_o(),
                                 
 	//inputs frm control          
 	.ldqHead_i                    (ldqHead),
