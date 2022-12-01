@@ -88,8 +88,9 @@ module Dispatch(
   //TODO: dispatchReady might not be needed since all packets going
   // out of dispatch have per instruction slot valid bits.
   output                                  dispatchReady_o,
-	output                                  backEndFull_o
+	output                                  backEndFull_o,
   //output                                  stallForCsr_o
+	input									amoCompleteAck_i
 	);
 
 
@@ -167,19 +168,27 @@ begin
 //	  storeCnt = storeCnt + (disPacket_i[i].isStore & dispatchLaneActive_i[i]); 
 //`else    
   	loadCnt  = loadCnt  + disPacket_i[i].isLoad; 
-	  storeCnt = storeCnt + disPacket_i[i].isStore; 
+	storeCnt = storeCnt + disPacket_i[i].isStore; 
 //`endif    
 	end
 end
 
 
 logic amoStall;
-always_comb begin
-  int i;
-  amoStall = 0;
-  for (i = 0; i < `DISPATCH_WIDTH; i++) begin
-    amoStall = amoStall | disPacket_i[i].isAtom;
-  end
+always_ff@(posedge clk or posedge reset) begin
+	if (reset) amoStall <= 0;
+	else begin
+		if amoStall begin
+			amoStall <= amoStall & ~amoCompleteAck_i;
+		end
+		else begin
+			int i;
+			amoStall <= 0;
+			for (i = 0; i < `DISPATCH_WIDTH; i++) begin
+				amoStall <= amoStall | disPacket_i[i].isAtom;
+			end
+		end
+	end
 end
 
 
@@ -409,6 +418,7 @@ begin
 		lsqPacket_o[i].isStore     = disPacket_i[i].isStore;
 		lsqPacket_o[i].valid       = disPacket_i[i].valid & ~stall & ~disPacket_i[i].exception; // Do not write to LSQ if exception
 //`endif
+		lsqPacket_o[i].isAtom 	   = disPacket_i[i].isAtom;
 	end
 end
 
