@@ -263,7 +263,6 @@ disPkt                            disPacket_l1 [0:`DISPATCH_WIDTH-1];
 //wires from Dispatch module
 logic                             backEndFull;
 logic                             stallForCsr;
-logic							  amoCompleteAck_i;
 
 //wires from Dispatch module
 logic                             dispatchReady;
@@ -821,8 +820,7 @@ InstructionBuffer instBuf (
 `endif
 
 	.renPacket_o          (renPacket),
-    .stallForCsr_o        (),
-	.stallForAmo_o ()
+    .stallForCsr_o        ()
 	);
 
 
@@ -986,9 +984,7 @@ Dispatch dispatch (
 `endif
   // When high, indicates a packet is being dispatched this cycle.
 	.dispatchReady_o       (dispatchReady),
-	.backEndFull_o         (backEndFull),
-	//.stallForCsr_o         (stallForCsr)
-  .amoCompleteAck_i		 (amoCompleteAck_i)
+	.backEndFull_o         (backEndFull)
 );
 
 

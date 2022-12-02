@@ -213,8 +213,7 @@ begin
         instLogical1_0[0]  = 1'b1;
         instDest_0[0]      = 1'b1;
         instFU_0           = `MEMORY_TYPE;
-        // prevent from going down ldq
-        // instLoad_0         = 1'b1;
+        instLoad_0         = 1'b1;
         instAtom_0         = 1'b1;
         instAmoOp_0        = AMO_LR;
       end
@@ -224,8 +223,7 @@ begin
         instLogical2_0[0]  = 1'b1;
         instDest_0[0]      = 1'b1;
         instFU_0           = `MEMORY_TYPE;
-        //prevent from going down sdq
-        // instStore_0        = 1'b1;
+        instStore_0        = 1'b1;
         instAtom_0         = 1'b1;
         instAmoOp_0        = AMO_SC;
       end

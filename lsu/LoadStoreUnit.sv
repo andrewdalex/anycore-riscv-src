@@ -216,44 +216,76 @@ reg  [`SIZE_LSQ_LOG-1:0]               nextLdIndex   [0:`DISPATCH_WIDTH-1];
 wire [`SIZE_LSQ-1:0]                   stqAddrValid_on_recover;
 wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 
+logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCount;
+logic amoInFlight, nextAmoInFlight;
+memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
 
-assign stqCount_o                    = stqCount;
-assign ldqCount_o                    = ldqCount;
+assign stqCount_o                    = amoStqCount;
+assign ldqCount_o                    = amoLdqCount;
 
 
-logic ready;
-
-logic queueDrained;
-logic mshrFull_o;
-always_comb begin
-	queueDrained = 1'b0;
-	if (stqCount == 0 && ldqCount == 0)
+always_ff @ (posedge clk or reset) begin
+	if (reset)
 	begin
-		queueDrained = 1'b1;
+		amoStqCount <= 0;
+		amoLdqCount <= 0;
+		amoInFlight <= 0;
+		memPacketDisp <= 0;
+		amoMemPacket <= 0;
+	end
+	
+	else
+	begin
+		amoStqCount <= nextAmoStqCount;
+		amoLdqCount <= nextAmoLdqCount;
+		amoInFlight <= nextAmoInFlight;
+		memPacketDisp <= nextMemPacketDisp;
+		amoMemPacket <= nextAmoMemPacket;
 	end
 end
 
-
-lsqPkt amoLsqIn, amoLsqOut;
-memPkt amoMemPktIn, amoMemPktOut;
-logic amoValidO;
-
-//TODO memPacket and LSQ Packet come in at different times
-// so need to buffer both and only release when both are there
-AtomicBuffer amo_buffer (
-	.clk_i (clk),
-	.rst_ni (reset),
-	.valid_i (memPacket_i.isAtom & memPacket_i.valid),
-	.flush_i(dc2memLdIsReserve_o), //clear buffer once we've sent the req off chip
-	.ready_o (ready),
-	.memPacket_i (amoMemPktIn),
-	.lsqPacket_i (amoLsqIn),
-	.memPacket_o (amoMemPktOut),
-	.lsqPacket_o (amoLsqOut),
-	.valid_o (amoValidO),
-	.amo_resp_i (amo_resp_i),
-	.no_mem_ops_pending_i (queueDrained & ~mshrFull_o)
-);
+always_comb begin
+	nextMemPacketDisp = memPacketDisp;
+	nextAmoStqCount = amoStqCount;
+	nextAmoLdqCount = amoLdqCount;
+	nextAmoInFlight = amoInFlight;
+	nextAmoMemPacket = amoMemPacket;
+	// rec'd amo packet, 
+	if (memPacket_i.isAtom & memPacket_i.valid)
+	begin
+		nextAmoStqCount = stqCount;
+		nextAmoLdqCount = ldqCount; // assert full when handling amo
+		nextAmoMemPacket = memPacket_i;
+		nextMemPacketDisp = 0;
+	end
+	
+	else if (amoMemPacket.valid)
+	begin
+		if ((stqCount + ldqCount) == 1)
+		begin
+			nextAmoInFlight = 1'b1;
+			nextAmoStqCount = `SIZE_LSQ;
+			nextAmoLdqCount = `SIZE_LSQ; // assert full when handling amo
+			nextMemPacketDisp = amoMemPacket;
+			nextAmoMemPacket = 0;
+		end
+	end
+	
+	// amo in flight keep asserting queue full todo add ack
+	else if (amoInFlight)
+	begin
+		nextAmoInFlight = 1'b1;
+	end
+	
+	else // not dealing with an atomic op defaults
+	begin
+		nextMemPacketDisp = memPacket_i;
+		nextAmoStqCount = stqCount;
+		nextAmoLdqCount = ldqCount;
+		nextAmoInFlight = 0;
+		nextAmoMemPacket = 0;
+	end
+end
 
 /* Instantiate lsu control and datapath here */
 
@@ -368,7 +400,7 @@ LSUDatapath datapath (
 	
 	.lsqPacket_i                  (lsqPacket_i),
 	
-	.memPacket_i                  (memPacket_i),
+	.memPacket_i                  (memPacketDisp),
 	.ldIsReserve_i(),
 	.mshrFull_o(),
                                 

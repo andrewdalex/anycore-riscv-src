@@ -88,9 +88,8 @@ module Dispatch(
   //TODO: dispatchReady might not be needed since all packets going
   // out of dispatch have per instruction slot valid bits.
   output                                  dispatchReady_o,
-	output                                  backEndFull_o,
+	output                                  backEndFull_o
   //output                                  stallForCsr_o
-	input									amoCompleteAck_i
 	);
 
 
@@ -175,19 +174,15 @@ end
 
 
 logic amoStall;
-always_ff@(posedge clk or posedge reset) begin
-	if (reset) amoStall <= 0;
-	else begin
-		if amoStall begin
-			amoStall <= amoStall & ~amoCompleteAck_i;
-		end
-		else begin
-			int i;
-			amoStall <= 0;
-			for (i = 0; i < `DISPATCH_WIDTH; i++) begin
-				amoStall <= amoStall | disPacket_i[i].isAtom;
-			end
-		end
+always_comb
+begin
+	if (reset | (loadQueueCnt_i == 0 & storeQueueCnt_i == 0)) amoStall = 0;
+	else 
+	begin
+		if (disPacket_i[0].isAtom) 
+			amoStall = 1;
+		else
+			amoStall = 0;
 	end
 end
 
