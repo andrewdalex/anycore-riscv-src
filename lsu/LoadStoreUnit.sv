@@ -116,7 +116,7 @@ module LSU (
     // cache-to-memory interface for Loads
     output [`DCACHE_BLOCK_ADDR_BITS-1:0]  dc2memLdAddr_o,  // memory read address
     output reg                          dc2memLdValid_o, // memory read enable
-		output dc2memLdIsReserve_o,
+    output dc2memLdIsReserve_o,
 
     // memory-to-cache interface for Loads
     input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,       // tag of the incoming datadetermine
@@ -218,6 +218,7 @@ wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 
 logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCount;
 logic amoInFlight, nextAmoInFlight;
+logic isLoadReserve, isStoreConditional, nextIsLoadReserve, nextIsStoreConditional;
 memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
 
 assign stqCount_o                    = amoStqCount;
@@ -232,6 +233,8 @@ always_ff @ (posedge clk or reset) begin
 		amoInFlight <= 0;
 		memPacketDisp <= 0;
 		amoMemPacket <= 0;
+		isLoadReserve <= 0;
+		isStoreConditional <= 0;
 	end
 	
 	else
@@ -241,6 +244,8 @@ always_ff @ (posedge clk or reset) begin
 		amoInFlight <= nextAmoInFlight;
 		memPacketDisp <= nextMemPacketDisp;
 		amoMemPacket <= nextAmoMemPacket;
+		isLoadReserve <= nextIsLoadReserve;
+		isStoreConditional <= nextIsStoreConditional;
 	end
 end
 
@@ -250,7 +255,10 @@ always_comb begin
 	nextAmoLdqCount = amoLdqCount;
 	nextAmoInFlight = amoInFlight;
 	nextAmoMemPacket = amoMemPacket;
-	// rec'd amo packet, 
+	nextIsStoreConditional = isStoreConditional;
+	nextIsLoadReserve = isLoadReserve;
+	
+	// rec'd amo packet, store until it's ready for dispatch
 	if (memPacket_i.isAtom & memPacket_i.valid)
 	begin
 		nextAmoStqCount = stqCount;
@@ -259,8 +267,10 @@ always_comb begin
 		nextMemPacketDisp = 0;
 	end
 	
+	// waiting to dispatch
 	else if (amoMemPacket.valid)
 	begin
+		//dispatch control, else keep waiting
 		if ((stqCount + ldqCount) == 1)
 		begin
 			nextAmoInFlight = 1'b1;
@@ -268,6 +278,10 @@ always_comb begin
 			nextAmoLdqCount = `SIZE_LSQ; // assert full when handling amo
 			nextMemPacketDisp = amoMemPacket;
 			nextAmoMemPacket = 0;
+			if (amoMemPacket.amo_op == AMO_LR)
+				nextIsLoadReserve = 1'b1;
+			else
+				nextIsStoreConditional = 1'b1;
 		end
 	end
 	
@@ -284,6 +298,8 @@ always_comb begin
 		nextAmoLdqCount = ldqCount;
 		nextAmoInFlight = 0;
 		nextAmoMemPacket = 0;
+		nextIsStoreConditional = 0;
+		nextIsLoadReserve = 0;
 	end
 end
 
@@ -401,7 +417,7 @@ LSUDatapath datapath (
 	.lsqPacket_i                  (lsqPacket_i),
 	
 	.memPacket_i                  (memPacketDisp),
-	.ldIsReserve_i(),
+	.ldIsReserve_i(isLoadReserve),
 	.mshrFull_o(),
                                 
 	//inputs frm control          

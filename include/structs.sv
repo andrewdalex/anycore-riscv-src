@@ -266,7 +266,7 @@ typedef struct packed {
 	logic                                 isLoad;
 	logic                                 isStore;
 	logic                                 valid;
-	logic								  isAtom;
+	logic                                 isAtom;
 } lsqPkt;
 
 typedef struct packed {
