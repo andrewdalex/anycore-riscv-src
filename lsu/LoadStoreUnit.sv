@@ -218,6 +218,7 @@ wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 
 logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCount;
 logic amoInFlight, nextAmoInFlight;
+logic amoLsqRecd, nextAmoLsqRecd;
 logic isLoadReserve, isStoreConditional, nextIsLoadReserve, nextIsStoreConditional;
 memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
 
@@ -228,54 +229,67 @@ assign ldqCount_o                    = amoLdqCount;
 always_ff @ (posedge clk or reset) begin
 	if (reset)
 	begin
-		amoStqCount <= 0;
-		amoLdqCount <= 0;
 		amoInFlight <= 0;
 		memPacketDisp <= 0;
 		amoMemPacket <= 0;
 		isLoadReserve <= 0;
 		isStoreConditional <= 0;
+		amoStqCount <= 0;
+		amoLdqCount <= 0;
+		amoLsqRecd <= 0;
 	end
 	
 	else
 	begin
-		amoStqCount <= nextAmoStqCount;
-		amoLdqCount <= nextAmoLdqCount;
 		amoInFlight <= nextAmoInFlight;
 		memPacketDisp <= nextMemPacketDisp;
 		amoMemPacket <= nextAmoMemPacket;
 		isLoadReserve <= nextIsLoadReserve;
 		isStoreConditional <= nextIsStoreConditional;
+		amoStqCount <= nextAmoStqCount;
+		amoLdqCount <= nextAmoLdqCount;
+		amoLsqRecd <= nextAmoLsqRecd;
 	end
 end
 
 always_comb begin
 	nextMemPacketDisp = memPacketDisp;
-	nextAmoStqCount = amoStqCount;
-	nextAmoLdqCount = amoLdqCount;
 	nextAmoInFlight = amoInFlight;
 	nextAmoMemPacket = amoMemPacket;
 	nextIsStoreConditional = isStoreConditional;
 	nextIsLoadReserve = isLoadReserve;
+	nextAmoStqCount = amoStqCount;
+	nextAmoLdqCount = amoLdqCount;
+	nextAmoLsqRecd = amoLsqRecd;
 	
-	// rec'd amo packet, store until it's ready for dispatch
-	if (memPacket_i.isAtom & memPacket_i.valid)
+	if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid)
 	begin
-		nextAmoStqCount = stqCount;
-		nextAmoLdqCount = ldqCount; // assert full when handling amo
+		nextAmoStqCount = `SIZE_LSQ;
+		nextAmoLdqCount = `SIZE_LSQ;
+		nextAmoLsqRecd = 1'b1; //need to unassert this once amo ack recd
+	end
+	
+	// rec'd amo memPacket, store until it's ready for dispatch
+	else if (memPacket_i.isAtom & memPacket_i.valid)
+	begin
 		nextAmoMemPacket = memPacket_i;
 		nextMemPacketDisp = 0;
+		nextAmoStqCount = `SIZE_LSQ;
+		nextAmoLdqCount = `SIZE_LSQ;
+		nextAmoLsqRecd = 1'b1;
 	end
 	
 	// waiting to dispatch
 	else if (amoMemPacket.valid)
 	begin
-		//dispatch control, else keep waiting
+		nextMemPacketDisp = 0;
+		nextAmoStqCount = `SIZE_LSQ;
+		nextAmoLdqCount = `SIZE_LSQ;
+		nextAmoLsqRecd = 1'b1;
+		//dispatch control, else keep waiting and don't dispatch ^
 		if ((stqCount + ldqCount) == 1)
 		begin
 			nextAmoInFlight = 1'b1;
-			nextAmoStqCount = `SIZE_LSQ;
-			nextAmoLdqCount = `SIZE_LSQ; // assert full when handling amo
 			nextMemPacketDisp = amoMemPacket;
 			nextAmoMemPacket = 0;
 			if (amoMemPacket.amo_op == AMO_LR)
@@ -289,17 +303,29 @@ always_comb begin
 	else if (amoInFlight)
 	begin
 		nextAmoInFlight = 1'b1;
+		nextAmoStqCount = `SIZE_LSQ;
+		nextAmoLdqCount = `SIZE_LSQ;
+		nextAmoLsqRecd = 1'b1;
+	end
+	
+	// waiting for memPacket to arrive
+	else if (amoLsqRecd)
+	begin
+		nextAmoStqCount = `SIZE_LSQ;
+		nextAmoLdqCount = `SIZE_LSQ;
+		nextAmoLsqRecd = 1'b1;
 	end
 	
 	else // not dealing with an atomic op defaults
 	begin
 		nextMemPacketDisp = memPacket_i;
-		nextAmoStqCount = stqCount;
-		nextAmoLdqCount = ldqCount;
 		nextAmoInFlight = 0;
 		nextAmoMemPacket = 0;
 		nextIsStoreConditional = 0;
 		nextIsLoadReserve = 0;
+		nextAmoStqCount = stqCount;
+		nextAmoLdqCount = ldqCount;
+		nextAmoLsqRecd = 0;
 	end
 end
 
