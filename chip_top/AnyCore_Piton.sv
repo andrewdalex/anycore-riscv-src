@@ -115,6 +115,7 @@ wire  [0:0]                        mem2icInvWay;     // icache invalidation way 
 // cache-to-memory interface for Loads
 wire [`DCACHE_BLOCK_ADDR_BITS-1:0] dc2memLdAddr;  // memory read address
 wire                               dc2memLdValid; // memory read enable
+logic dc2memLdIsReserve;
 
 // memory-to-cache interface for Loads
 wire [`DCACHE_TAG_BITS-1:0]     mem2dcLdTag;       // tag of the incoming datadetermine
@@ -472,6 +473,7 @@ Core_OOO coreTop(
   
     .dc2memLdAddr_o                      (dc2memLdAddr     ), // memory read address
     .dc2memLdValid_o                     (dc2memLdValid    ), // memory read enable
+    .dc2memLdIsReserve_o (dc2memLdIsReserve),
                                                             
     .mem2dcLdTag_i                       (mem2dcLdTag      ), // tag of the incoming datadetermine
     .mem2dcLdIndex_i                     (mem2dcLdIndex    ), // index of the incoming data
@@ -585,9 +587,7 @@ Core_OOO coreTop(
 //  
 //`endif
 
-
-    // not supported at the moment
-    assign transducer_l15_amo_op = `L15_AMO_OP_NONE;
+    
     anycore_tri_transducer tri_transducer(
         .clk                               (clk),
         .rst_n                             (rst_n),
@@ -600,12 +600,14 @@ Core_OOO coreTop(
 
         .dc2mem_ldaddr_i                   (dc2memLdAddr),
         .dc2mem_ldvalid_i                  (dc2memLdValid),
+				.dc2memLdIsReserve_i (dc2memLdIsReserve),
 
         .dc2mem_staddr_i                   (dc2memStAddr),
         .dc2mem_stdata_i                   (dc2memStData),
         .dc2mem_stsize_i                   (dc2memStSize),
         .dc2mem_stvalid_i                  (dc2memStValid),
 
+        .transducer_l15_amo_op_o (transducer_l15_amo_op),
         .transducer_l15_rqtype_o               (transducer_l15_rqtype),
         .transducer_l15_nc_o                   (transducer_l15_nc),
         .transducer_l15_size_o                 (transducer_l15_size),

@@ -12,6 +12,7 @@ module anycore_tri_transducer(
     input                               ic2mem_reqvalid_i,
 
     input [`DCACHE_BLOCK_ADDR_BITS-1:0] dc2mem_ldaddr_i,
+    input dc2memLdIsReserve_i,
 
     input [`DCACHE_ST_ADDR_BITS-1:0]    dc2mem_staddr_i,
     input [`SIZE_DATA-1:0]              dc2mem_stdata_i,
@@ -19,6 +20,7 @@ module anycore_tri_transducer(
 
     // outputs anycore uses
     output reg  [4:0]  transducer_l15_rqtype_o,
+    output reg [3:0]       transducer_l15_amo_op_o,
     output reg  [2:0]  transducer_l15_size_o,
     output reg         transducer_l15_val_o,
     output reg  [`PHY_ADDR_WIDTH-1:0] transducer_l15_address_o,
@@ -129,6 +131,8 @@ reg [1:0] decoder_load_reg;
 reg [1:0] decoder_load_next;
 reg [63:0] 			  anycore_load_full_addr_buf;
 reg [63:0] 			  anycore_load_full_addr_buf_next;
+logic anycore_ld_is_reserve_next, anycore_ld_is_reserve;
+reg [3:0] transducer_l15_amo_op_next;
 
 reg [1:0] imiss_reg;
 reg [1:0] imiss_next;
@@ -152,6 +156,7 @@ always @ (posedge clk) begin
         anycore_dc2mem_stsize_buf   <= 3'b0;
         anycore_load_full_addr_buf  <= 64'b0;
         anycore_imiss_full_addr_buf  <= 64'b0;
+        anycore_ld_is_reserve <= 1'b0;
     end
     else begin
         decoder_store_reg <= decoder_store_next;
@@ -163,6 +168,7 @@ always @ (posedge clk) begin
         anycore_dc2mem_stsize_buf   <= anycore_dc2mem_stsize_buf_next;
         anycore_load_full_addr_buf  <= anycore_load_full_addr_buf_next;
         anycore_imiss_full_addr_buf  <= anycore_imiss_full_addr_buf_next;
+        anycore_ld_is_reserve <= anycore_ld_is_reserve_next;
     end
 end
 
@@ -196,6 +202,7 @@ always @ * begin
     if (dc2mem_ldvalid_i) begin
         decoder_load_next = ARRIVE;
         anycore_load_full_addr_buf_next  = anycore_load_full_addr;
+        anycore_ld_is_reserve_next = dc2memLdIsReserve_i;
     end
     if (ic2mem_reqvalid_i) begin
         imiss_next = ARRIVE;
@@ -231,8 +238,20 @@ always @ * begin
     else if (decoder_load_next == ISSUE) begin
         transducer_l15_address_next = (decoder_load_reg == IDLE) ? anycore_load_full_addr_buf_next[`PHY_ADDR_WIDTH-1:0]
 							     : anycore_load_full_addr_buf[`PHY_ADDR_WIDTH-1:0];
-        transducer_l15_data_next = 64'b0;
+        transducer_l15_amo_op_next = 4'b0000;
         transducer_l15_rqtype_next = `LOAD_RQ;
+        if (decoder_load_reg == IDLE & anycore_ld_is_reserve_next)
+        begin
+          transducer_l15_amo_op_next = 4'b0001;
+          transducer_l15_rqtype_next = `SWAP_RQ;
+        end
+        else if (anycore_ld_is_reserve)
+        begin
+          transducer_l15_amo_op_next = 4'b0001;
+          transducer_l15_rqtype_next = `SWAP_RQ;
+        end
+        transducer_l15_data_next = 64'b0;
+        
         transducer_l15_size_next = `PCX_SZ_16B;
         transducer_l15_l1rplway_o = anycore_load_way;
     end
@@ -268,6 +287,7 @@ begin
         transducer_l15_data_o <= 64'b0;
         transducer_l15_rqtype_o <= 5'b0;
         transducer_l15_size_o <= 3'b0;
+        transducer_l15_amo_op_o <= 4'b0000;
     end
     else begin
         current_val <= ic2mem_reqvalid_i | dc2mem_stvalid_i | dc2mem_ldvalid_i;
@@ -278,6 +298,7 @@ begin
         transducer_l15_data_o <= transducer_l15_data_next;
         transducer_l15_rqtype_o <= transducer_l15_rqtype_next;
         transducer_l15_size_o <= transducer_l15_size_next;
+        transducer_l15_amo_op_o <= transducer_l15_amo_op_next;
     end
 end
 
