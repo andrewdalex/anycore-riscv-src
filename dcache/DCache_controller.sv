@@ -43,6 +43,7 @@ module DCache_controller(
     input  [`SIZE_PC-1:0]               stAddr_i,
     input  [`LDST_TYPES_LOG-1:0]        stSize_i,
     input  [`SIZE_DATA-1:0]             stData_i, 
+    input                               stIsConditional_i,
     //input  [2**`DCACHE_WORD_BYTE_OFFSET_LOG-1:0]stByteEn_i, 
     output                              stHit_o,
 
@@ -63,6 +64,7 @@ module DCache_controller(
     output [`SIZE_DATA-1:0]             dc2memStData_o,  // memory read address
     output [2:0]                        dc2memStSize_o,  // memory read address
     output reg                          dc2memStValid_o, // memory read enable
+    output                              dc2memStIsConditional_o,
 
     input                               mem2dcInv_i,     // dcache invalidation
     input  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd_i,  // dcache invalidation index
@@ -269,6 +271,7 @@ module DCache_controller(
   logic                               miss_pulse;
   logic                               missUnderMiss;
   logic handleLR;
+  logic handleSC;
   
   assign miss = ~ldHit;
 
@@ -282,6 +285,7 @@ module DCache_controller(
       miss_d1 <= 1'b0;
       miss_d2 <= 1'b0;
       handleLR <= 1'b0;
+      handleSC <= 1'b0;
     end
     else
     begin
@@ -290,6 +294,7 @@ module DCache_controller(
       // Clear on a fillValid so that a pulse is generated for a pending miss
       miss_d2 <= miss_d1 & ~fillValid;
       handleLR <= ldIsReserve_i;
+      handleSC <= stIsConditional_i;
     end
   end
   
@@ -519,14 +524,15 @@ module DCache_controller(
   //    stale data from cache/memory. Once the store completes, the replay mechanism
   //    makes sure of a future hit.
   
-  assign  stHit_o = stHit;
+  assign  stHit_o = stHit & ~handleSC;
 
-  assign  stMiss_o = ~stHit & mem2dcStComplete_d1;
+  assign  stMiss_o = (~stHit & mem2dcStComplete_d1) | handleSC;
   
   assign dc2memStAddr_o        = st_addr_reg;
   assign dc2memStData_o        = piton_stData_reg;
   assign dc2memStSize_o        = piton_stSize_reg;
   assign dc2memStValid_o       = stEn_reg & (~dcScratchModeEn_d1);
+  assign dc2memStIsConditional_o = handleSC;
   
   logic [`SIZE_DATA-1:0]           stbData[`DCACHE_SIZE_STB-1:0];
   logic [`SIZE_DATA_BYTE-1:0]      stbByteEn[`DCACHE_SIZE_STB-1:0];

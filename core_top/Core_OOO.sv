@@ -91,6 +91,7 @@ module Core_OOO(
   output [`SIZE_DATA-1:0]             dc2memStData_o,  // memory read address
   output [2:0]                        dc2memStSize_o,  // memory read address
   output reg                          dc2memStValid_o, // memory read enable
+  output dc2memStIsConditional_o,
 
   input                               mem2dcInv_i,     // dcache invalidation
   input  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd_i,  // dcache invalidation index
@@ -1620,6 +1621,7 @@ LSU lsu (
   .dc2memStData_o       (dc2memStData_o     ), // memory read address
   .dc2memStSize_o       (dc2memStSize_o     ), // memory read address
   .dc2memStValid_o      (dc2memStValid_o    ), // memory read enable
+  .dc2memStIsConditional_o (dc2memStIsConditional_o),
                                            
   .mem2dcInv_i,     // dcache invalidation
   .mem2dcInvInd_i,  // dcache invalidation index

@@ -52,6 +52,7 @@ module LDX_path_structured (
   output [`SIZE_DATA-1:0]             dc2memStData_o,  // memory read address
   output [2:0]                        dc2memStSize_o,  // memory read address
   output reg                          dc2memStValid_o, // memory read enable
+  output dc2memStIsConditional_o,
 
   input                               mem2dcInv_i,     // dcache invalidation
   input  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd_i,  // dcache invalidation index
@@ -87,6 +88,7 @@ module LDX_path_structured (
 	input  memPkt                       ldPacket_i,
 	input  memPkt                       stPacket_i,
 	input                               ldIsReserve_i,
+	input                               stIsConditional_i,
   output                              mshrFull_o,
 
 	input                               commitSt_i,
@@ -201,6 +203,7 @@ L1DataCache L1dCache (
   .dc2memStData_o             (dc2memStData_o     ), // memory read address
   .dc2memStSize_o             (dc2memStSize_o     ), // memory read address
   .dc2memStValid_o            (dc2memStValid_o    ), // memory read enable
+  .dc2memStIsConditional_o(dc2memStIsConditional_o),
                                                  
   .mem2dcInv_i,     // dcache invalidation
   .mem2dcInvInd_i,  // dcache invalidation index
@@ -230,6 +233,7 @@ L1DataCache L1dCache (
 	.rdHit_o                    (readHit),
 	.rdData_o                   (dcacheData),
 	.ldIsReserve_i(ldIsReserve_i),
+	.stIsConditional_i(stIsConditional_i),
 	.mshrFull_o(mshrFull_o),
 
 	.wrEn_i                     (commitSt_i),

@@ -128,6 +128,7 @@ wire [`DCACHE_ST_ADDR_BITS-1:0]  dc2memStAddr;
 wire [`SIZE_DATA-1:0]            dc2memStData;
 wire [2:0]                       dc2memStSize;
 wire                             dc2memStValid;
+logic dc2memStIsConditional;
 
 wire                               mem2dcInv;     // dcache invalidation
 wire  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd;  // dcache invalidation index
@@ -484,6 +485,7 @@ Core_OOO coreTop(
     .dc2memStData_o                      (dc2memStData     ), // memory read address
     .dc2memStSize_o                      (dc2memStSize     ), // memory read address
     .dc2memStValid_o                     (dc2memStValid    ), // memory read enable
+    .dc2memStIsConditional_o (dc2memStIsConditional),
                                                             
     .mem2dcInv_i                         (mem2dcInv        ),     // dcache invalidation
     .mem2dcInvInd_i                      (mem2dcInvInd     ),  // dcache invalidation index
