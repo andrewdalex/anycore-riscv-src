@@ -602,12 +602,13 @@ Core_OOO coreTop(
 
         .dc2mem_ldaddr_i                   (dc2memLdAddr),
         .dc2mem_ldvalid_i                  (dc2memLdValid),
-				.dc2memLdIsReserve_i (dc2memLdIsReserve),
+        .dc2memLdIsReserve_i (dc2memLdIsReserve),
 
         .dc2mem_staddr_i                   (dc2memStAddr),
         .dc2mem_stdata_i                   (dc2memStData),
         .dc2mem_stsize_i                   (dc2memStSize),
         .dc2mem_stvalid_i                  (dc2memStValid),
+        .dc2memStIsConditional_i (dc2memStIsConditional),
 
         .transducer_l15_amo_op_o (transducer_l15_amo_op),
         .transducer_l15_rqtype_o               (transducer_l15_rqtype),

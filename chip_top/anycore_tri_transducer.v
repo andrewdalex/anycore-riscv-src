@@ -17,6 +17,7 @@ module anycore_tri_transducer(
     input [`DCACHE_ST_ADDR_BITS-1:0]    dc2mem_staddr_i,
     input [`SIZE_DATA-1:0]              dc2mem_stdata_i,
     input [2:0]                         dc2mem_stsize_i,
+    input dc2memStIsConditional_i,
 
     // outputs anycore uses
     output reg  [4:0]  transducer_l15_rqtype_o,
@@ -132,6 +133,7 @@ reg [1:0] decoder_load_next;
 reg [63:0] 			  anycore_load_full_addr_buf;
 reg [63:0] 			  anycore_load_full_addr_buf_next;
 logic anycore_ld_is_reserve_next, anycore_ld_is_reserve;
+logic anycore_st_is_cond_next, anycore_st_is_cond;
 reg [3:0] transducer_l15_amo_op_next;
 
 reg [1:0] imiss_reg;
@@ -169,6 +171,7 @@ always @ (posedge clk) begin
         anycore_load_full_addr_buf  <= anycore_load_full_addr_buf_next;
         anycore_imiss_full_addr_buf  <= anycore_imiss_full_addr_buf_next;
         anycore_ld_is_reserve <= anycore_ld_is_reserve_next;
+        anycore_st_is_cond <= anycore_st_is_cond_next;
     end
 end
 
@@ -198,6 +201,7 @@ always @ * begin
 	anycore_store_full_addr_buf_next = anycore_store_full_addr;
         anycore_dc2mem_stdata_flipped_buf_next   = anycore_dc2mem_stdata_flipped;
         anycore_dc2mem_stsize_buf_next   = dc2mem_stsize_i;
+        anycore_st_is_cond_next = anycore_st_is_cond;
     end
     if (dc2mem_ldvalid_i) begin
         decoder_load_next = ARRIVE;
@@ -238,17 +242,17 @@ always @ * begin
     else if (decoder_load_next == ISSUE) begin
         transducer_l15_address_next = (decoder_load_reg == IDLE) ? anycore_load_full_addr_buf_next[`PHY_ADDR_WIDTH-1:0]
 							     : anycore_load_full_addr_buf[`PHY_ADDR_WIDTH-1:0];
-        transducer_l15_amo_op_next = 4'b0000;
+        transducer_l15_amo_op_next = 4'b0000; //AMO_NONE
         transducer_l15_rqtype_next = `LOAD_RQ;
         if (decoder_load_reg == IDLE & anycore_ld_is_reserve_next)
         begin
-          transducer_l15_amo_op_next = 4'b0001;
-          transducer_l15_rqtype_next = `SWAP_RQ;
+          transducer_l15_amo_op_next = 4'b0001; //AMO_LR
+          transducer_l15_rqtype_next = `SWAP_RQ; //SWAP is same opcode as atomic rq
         end
         else if (anycore_ld_is_reserve)
         begin
-          transducer_l15_amo_op_next = 4'b0001;
-          transducer_l15_rqtype_next = `SWAP_RQ;
+          transducer_l15_amo_op_next = 4'b0001; //AMO_LR
+          transducer_l15_rqtype_next = `SWAP_RQ; //SWAP is same opcode as atomic rq
         end
         transducer_l15_data_next = 64'b0;
         
@@ -261,6 +265,17 @@ always @ * begin
         transducer_l15_data_next = (decoder_store_reg == IDLE) ? anycore_dc2mem_stdata_flipped_buf_next  //anycore_dc2mem_stdata;
 							   : anycore_dc2mem_stdata_flipped_buf;
         transducer_l15_rqtype_next = `STORE_RQ;
+        transducer_l15_amo_op_next = 4'b0000; //AMO_NONE
+        if (decoder_store_reg == IDLE & anycore_st_is_cond_next)
+        begin
+          transducer_l15_amo_op_next = 4'b0010; //AMO_SC
+          transducer_l15_rqtype_next = `SWAP_RQ; //atomic rq
+        end
+        else if (anycore_st_is_cond)
+        begin
+          transducer_l15_amo_op_next = 4'b0010; //AMO_SC
+          transducer_l15_rqtype_next = `SWAP_RQ; //atomic rq
+        end
         transducer_l15_size_next = (decoder_store_reg == IDLE) ? anycore_dc2mem_stsize_buf_next
 							   : anycore_dc2mem_stsize_buf;
         transducer_l15_l1rplway_o = anycore_store_way;
@@ -467,7 +482,7 @@ always @ * begin
             signal_icache_inval = l15_transducer_inval_icache_inval_i;
         end
         4'b1110: begin //atomic return type
-            if (dc2memLdIsReserve_i)
+            if (dc2memLdIsReserve_i) //stays asserted throughout duration of req
               mem2dc_ldvalid_o = 1'b1;
             else // if not LR then it's SC
               mem2dc_stcomplete_o = 1'b1;
