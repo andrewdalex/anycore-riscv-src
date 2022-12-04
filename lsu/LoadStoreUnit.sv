@@ -218,127 +218,107 @@ wire [`SIZE_LSQ-1:0]                   stqAddrValid_on_recover;
 wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 
 logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCount;
-logic amoInFlight, nextAmoInFlight;
-logic amoLsqRecd, nextAmoLsqRecd;
 logic isLoadReserve, isStoreConditional, nextIsLoadReserve, nextIsStoreConditional;
 memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
 
 assign stqCount_o                    = amoStqCount;
 assign ldqCount_o                    = amoLdqCount;
 
+localparam [1:0] NO_ACTIVE_AMO = 2'b00, WAIT_FOR_MEM_PKT = 2'b01, WAIT_FOR_DISPATCH = 2'b10, AMO_IN_FLIGHT = 2'b11;
+
+logic [1:0] currentState, nextState;
+
 
 always_ff @ (posedge clk or reset) begin
-	if (reset)
-	begin
-		amoInFlight <= 0;
-		memPacketDisp <= 0;
-		amoMemPacket <= 0;
-		isLoadReserve <= 0;
-		isStoreConditional <= 0;
-		amoStqCount <= 0;
-		amoLdqCount <= 0;
-		amoLsqRecd <= 0;
-	end
-	
-	else
-	begin
-		amoInFlight <= nextAmoInFlight;
-		memPacketDisp <= nextMemPacketDisp;
-		amoMemPacket <= nextAmoMemPacket;
-		isLoadReserve <= nextIsLoadReserve;
-		isStoreConditional <= nextIsStoreConditional;
-		amoStqCount <= nextAmoStqCount;
-		amoLdqCount <= nextAmoLdqCount;
-		amoLsqRecd <= nextAmoLsqRecd;
-	end
+  if (reset)
+  begin
+    memPacketDisp <= 0;
+    amoMemPacket <= 0;
+    isLoadReserve <= 0;
+    isStoreConditional <= 0;
+    amoStqCount <= 0;
+    amoLdqCount <= 0;
+    currentState <= NO_ACTIVE_AMO;
+  end
+
+  else
+  begin
+    memPacketDisp <= nextMemPacketDisp;
+    amoMemPacket <= nextAmoMemPacket;
+    isLoadReserve <= nextIsLoadReserve;
+    isStoreConditional <= nextIsStoreConditional;
+    amoStqCount <= nextAmoStqCount;
+    amoLdqCount <= nextAmoLdqCount;
+    currentState <= nextState;
+  end
 end
 
 always_comb begin
-	nextMemPacketDisp = memPacketDisp;
-	nextAmoInFlight = amoInFlight;
+  nextMemPacketDisp = memPacketDisp;
 	nextAmoMemPacket = amoMemPacket;
 	nextIsStoreConditional = isStoreConditional;
 	nextIsLoadReserve = isLoadReserve;
 	nextAmoStqCount = amoStqCount;
 	nextAmoLdqCount = amoLdqCount;
-	nextAmoLsqRecd = amoLsqRecd;
-	
-	if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid)
-	begin
-		nextAmoStqCount = `SIZE_LSQ;
-		nextAmoLdqCount = `SIZE_LSQ;
-		nextAmoLsqRecd = 1'b1; //need to unassert this once amo ack recd
-	end
-	
-	// rec'd amo memPacket, store until it's ready for dispatch
-	else if (memPacket_i.isAtom & memPacket_i.valid)
-	begin
-		nextAmoMemPacket = memPacket_i;
-		nextMemPacketDisp = 0;
-		nextAmoStqCount = `SIZE_LSQ;
-		nextAmoLdqCount = `SIZE_LSQ;
-		nextAmoLsqRecd = 1'b1;
-	end
-	
-	// waiting to dispatch
-	else if (amoMemPacket.valid)
-	begin
-		nextMemPacketDisp = 0;
-		nextAmoStqCount = `SIZE_LSQ;
-		nextAmoLdqCount = `SIZE_LSQ;
-		nextAmoLsqRecd = 1'b1;
-		//dispatch control, else keep waiting and don't dispatch ^
-		if ((stqCount + ldqCount) == 1)
-		begin
-			nextAmoInFlight = 1'b1;
-			nextMemPacketDisp = amoMemPacket;
-			nextAmoMemPacket = 0;
-			if (amoMemPacket.amo_op == AMO_LR)
-				nextIsLoadReserve = 1'b1;
-			else
-				nextIsStoreConditional = 1'b1;
-		end
-	end
+  nextState = currentState;
   
-  // done with LR 
-  else if (amoInFlight & mem2dcLdValid_i)
-  begin
-    nextAmoInFlight = 1'b0;
-    nextAmoStqCount = stqCount;
-    nextAmoLdqCount = ldqCount;
-    nextAmoLsqRecd = 1'b0;
-    nextIsLoadReserve = 1'b0;
-    nextMemPacketDisp = 1'b0;
-  end
-	
-	// amo in flight keep asserting queue full todo add ack
-	else if (amoInFlight)
-	begin
-		nextAmoInFlight = 1'b1;
-		nextAmoStqCount = `SIZE_LSQ;
-		nextAmoLdqCount = `SIZE_LSQ;
-		nextAmoLsqRecd = 1'b1;
-	end
-	
-	// waiting for memPacket to arrive
-	else if (amoLsqRecd)
-	begin
-		nextAmoStqCount = `SIZE_LSQ;
-		nextAmoLdqCount = `SIZE_LSQ;
-		nextAmoLsqRecd = 1'b1;
-	end
-	
-	else // not dealing with an atomic op defaults
-	begin
-		nextMemPacketDisp = memPacket_i;
-		nextAmoInFlight = 0;
-		nextAmoMemPacket = 0;
-		nextIsStoreConditional = 0;
-		nextIsLoadReserve = 0;
-		nextAmoStqCount = stqCount;
-		nextAmoLdqCount = ldqCount;
-		nextAmoLsqRecd = 0;
-	end
+  case(currentState)
+    NO_ACTIVE_AMO:
+    begin
+      if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid)
+      begin
+        nextAmoStqCount = `SIZE_LSQ;
+        nextAmoLdqCount = `SIZE_LSQ;
+        nextState = WAIT_FOR_MEM_PKT;
+      end
+      else // not dealing with an atomic op defaults
+      begin
+        nextMemPacketDisp = memPacket_i;
+        nextAmoMemPacket = 0;
+        nextIsStoreConditional = 0;
+        nextIsLoadReserve = 0;
+        nextAmoStqCount = stqCount;
+        nextAmoLdqCount = ldqCount;
+        nextState = NO_ACTIVE_AMO;
+      end
+    end
+    
+    WAIT_FOR_MEM_PKT:
+    begin
+      if (memPacket_i.isAtom & memPacket_i.valid)
+      begin
+        nextAmoMemPacket = memPacket_i;
+        nextMemPacketDisp = 0;
+        nextState = WAIT_FOR_DISPATCH;
+      end
+    end
+    
+    WAIT_FOR_DISPATCH:
+    begin
+      if ((stqCount + ldqCount) == 1)
+      begin
+        nextMemPacketDisp = amoMemPacket;
+        nextAmoMemPacket = 0;
+        nextState = AMO_IN_FLIGHT;
+        if (amoMemPacket.amo_op == AMO_LR)
+          nextIsLoadReserve = 1'b1;
+        else
+          nextIsStoreConditional = 1'b1;
+      end
+    end
+    
+    AMO_IN_FLIGHT:
+    begin
+      if (mem2dcLdValid_i)
+      begin
+        nextAmoStqCount = stqCount;
+        nextAmoLdqCount = ldqCount;
+        nextIsLoadReserve = 1'b0;
+        nextMemPacketDisp = 1'b0;
+        nextState = NO_ACTIVE_AMO;
+      end
+    end
+  endcase
 end
 
 /* Instantiate lsu control and datapath here */
