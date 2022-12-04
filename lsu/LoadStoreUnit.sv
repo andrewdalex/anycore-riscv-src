@@ -298,6 +298,17 @@ always_comb begin
 				nextIsStoreConditional = 1'b1;
 		end
 	end
+  
+  // done with LR 
+  else if (amoInFlight & mem2dcLdValid_i)
+  begin
+    nextAmoInFlight = 1'b0;
+    nextAmoStqCount = stqCount;
+    nextAmoLdqCount = ldqCount;
+    nextAmoLsqRecd = 1'b0;
+    nextIsLoadReserve = 1'b0;
+    nextMemPacketDisp = 1'b0;
+  end
 	
 	// amo in flight keep asserting queue full todo add ack
 	else if (amoInFlight)

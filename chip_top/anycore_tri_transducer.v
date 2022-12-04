@@ -466,6 +466,12 @@ always @ * begin
             signal_dcache_inval = l15_transducer_inval_dcache_inval_i;
             signal_icache_inval = l15_transducer_inval_icache_inval_i;
         end
+        4'b1110: begin //atomic return type
+            if (dc2memLdIsReserve_i)
+              mem2dc_ldvalid_o = 1'b1;
+            else // if not LR then it's SC
+              mem2dc_stcomplete_o = 1'b1;
+        end
         default: begin
             int_recv = 1'b0;
         end

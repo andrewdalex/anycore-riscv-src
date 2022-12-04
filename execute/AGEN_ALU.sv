@@ -49,6 +49,7 @@ begin:ALU_OPERATION
 	  reg [`SIZE_DATA-1:0] sign_ex_immd;
     reg [`SIZE_OPCODE_P-1:0] opcode;
     reg [`FUNCT3_HI-`FUNCT3_LO:0] fn3;
+    logic [`FUNCT5_HI-`FUNCT5_LO:0] fn5;
 
     /*Sign-extending immediate field from the exePacket*/
 
@@ -56,12 +57,34 @@ begin:ALU_OPERATION
     opcode      = inst_i[`SIZE_OPCODE_P-1:0]; 
 
     fn3 = inst_i[`FUNCT3_HI:`FUNCT3_LO];
+    fn5 = inst_i[`FUNCT5_HI:`FUNCT5_LO];
 
 	  address   = 0;
 	  ldstSize  = 0;
 	  flags_o   = 0;
 
-	  case(opcode)
+    case(opcode)
+      `OP_ATOM:
+        begin
+          case(fn5)
+            `FN5_LR:
+            begin
+              address = data1_i;
+              ldstSize = `LDST_WORD;
+              flags_o.destValid = 1'b1;
+              flags_o.ldSign = 1'h1;
+            end
+      
+            `FN5_SC:
+            begin
+              address = data1_i;
+              ldstSize = `LDST_WORD;
+              flags_o.destValid = 1'b1;
+              flags_o.executed = 1'h1;
+            end
+          endcase
+        end
+
 
 		    `OP_LOAD, `OP_LOAD_FP:	//Changes: Mohit (Added FP-LOAD which behaves like a INT-LOAD)
          begin

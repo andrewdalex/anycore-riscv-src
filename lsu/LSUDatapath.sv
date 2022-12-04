@@ -173,11 +173,11 @@ begin
   // Allow a replay packet to be exposed to the cache only
   // if a memPacket (load or store) is not being exposed to
   // cache in this cycle.
-	if (memPacket_i.valid & memPacket_i_flags.destValid & ~memPacket_i.isAtom)
+	if (memPacket_i.valid & memPacket_i_flags.destValid)
 	begin
 		ldPacket          = memPacket_i;
 	end
-	else if (~memPacket_i.valid & replayPacket_l1.valid & ~memPacket_i.isAtom)
+	else if (~memPacket_i.valid & replayPacket_l1.valid)
 	begin
 		ldPacket          = replayPacket_l1;
 	end
@@ -190,7 +190,7 @@ end
 always_comb
 begin
   // An incoming store
-	if (memPacket_i.valid & ~memPacket_i_flags.destValid & ~memPacket_i.isAtom)
+	if (memPacket_i.valid & ~memPacket_i_flags.destValid)
 	begin
 		stPacket          = memPacket_i;
 	end
