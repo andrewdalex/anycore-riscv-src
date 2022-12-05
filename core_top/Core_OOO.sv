@@ -100,6 +100,7 @@ module Core_OOO(
   // memory-to-cache interface for stores
   input                               mem2dcStComplete_i,
   input                               mem2dcStStall_i,
+  input mem2dcStCondSucc_i,
 
   input  [1:0]                        irq_i,      // level sensitive IR lines, mip & sip (async)
   input                               ipi_i,      // software interrupt (a.k.a inter-process-interrupt)
@@ -1629,6 +1630,7 @@ LSU lsu (
 
   .mem2dcStComplete_i   (mem2dcStComplete_i ),
   .mem2dcStStall_i      (mem2dcStStall_i    ),
+  .mem2dcStCondSucc_i (mem2dcStCondSucc_i),
 
   .stallStCommit_o      (stallStCommit    ),
 

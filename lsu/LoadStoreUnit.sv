@@ -138,6 +138,7 @@ module LSU (
     // memory-to-cache interface for stores
     input                               mem2dcStComplete_i,
     input                               mem2dcStStall_i,
+    input mem2dcStCondSucc_i,
 
     output                              stallStCommit_o,
 
@@ -174,6 +175,9 @@ module LSU (
 	output [`SIZE_LSQ_LOG:0]              stqCount_o,
 
 	output wbPkt                          wbPacket_o,
+  //tell the AL that we have an atomic store ready to commit
+  // stores rely on wbPacket for this but we need to send the wbPacket later
+  // output ctrlPkt                        scCtrlPacket_o,
 	output ldVioPkt                       ldVioPacket_o,
   output exceptionPkt                   memExcptPacket_o,
   output [`SIZE_VIRT_ADDR-1:0]        stCommitAddr_o,
@@ -220,6 +224,7 @@ wire [`SIZE_LSQ_LOG-1:0]               stqTail;
 logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCount;
 logic isLoadReserve, isStoreConditional, nextIsLoadReserve, nextIsStoreConditional;
 memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
+wbPkt wbPacket, nextWbPacket, lsuWbPkt;
 
 logic [`DCACHE_ST_ADDR_BITS-1:0] memStAddr, nextMemStAddr, dc2memStAddr;
 logic [`SIZE_DATA-1:0] memStData, nextMemStData, dc2memStData;
@@ -228,6 +233,7 @@ logic memStValid, nextMemStValid, dc2memStValid;
 
 assign stqCount_o                    = amoStqCount;
 assign ldqCount_o                    = amoLdqCount;
+assign wbPacket_o = wbPacket;
 
 assign dc2memStAddr_o = memStAddr;
 assign dc2memStData_o = memStData;
@@ -251,6 +257,7 @@ always_ff @ (posedge clk or reset) begin
     amoStqCount <= 0;
     amoLdqCount <= 0;
     currentState <= NO_ACTIVE_AMO;
+    wbPacket <= 0;
   end
 
   else
@@ -267,6 +274,7 @@ always_ff @ (posedge clk or reset) begin
     memStData <= nextMemStData;
     memStSize <= nextMemStSize;
     memStValid <= nextMemStValid;
+    wbPacket <= nextWbPacket;
   end
 end
 
@@ -282,6 +290,7 @@ always_comb begin
   nextMemStData = memStData;
   nextMemStSize = memStSize;
   nextMemStValid = memStValid;
+  nextWbPacket = lsuWbPkt;
   
   case(currentState)
     NO_ACTIVE_AMO:
@@ -324,30 +333,26 @@ always_comb begin
       else if ((stqCount + ldqCount) == 1 & amoMemPacket.valid)
       begin
         nextState = WAIT_FOR_SC_COMMIT;
-        nextMemPacketDisp = amoMemPacket;
       end
       
     end
     
     WAIT_FOR_SC_COMMIT:
     begin
-        
-      if (commitStore_i[0])
-      begin
-        nextMemStAddr = amoMemPacket.address;
-        nextMemStData = amoMemPacket.src2Data;
-        nextMemStSize = amoMemPacket.ldstSize;
-        nextMemStValid = 1'b1;
-        nextIsStoreConditional = 1'b1;
-        nextMemPacketDisp = amoMemPacket;
-        nextState = WAIT_FOR_SC_ST_COMPLETE;
-      end
+      // assume always commit
+      nextMemStAddr = amoMemPacket.address;
+      nextMemStData = amoMemPacket.src2Data;
+      nextMemStSize = amoMemPacket.ldstSize;
+      nextMemStValid = 1'b1;
+      nextIsStoreConditional = 1'b1;
+      nextMemPacketDisp = amoMemPacket;
+      nextState = WAIT_FOR_SC_ST_COMPLETE;
       
-      if (recoverFlag_i)
-      begin
-        nextState = NO_ACTIVE_AMO;
-        //todo send recover flag down
-      end
+      // if (recoverFlag_i)
+      // begin
+      //   nextState = NO_ACTIVE_AMO;
+      //   //todo send recover flag down
+      // end
     end
     
     WAIT_FOR_SC_ST_COMPLETE:
@@ -547,7 +552,7 @@ LSUDatapath datapath (
 	.stqTail_i                    (stqTail),
                                        
 	//outputs to top                     
-	.wbPacket_o                   (wbPacket_o),
+	.wbPacket_o                   (lsuWbPkt),
 	.ldVioPacket_o                (ldVioPacket_o),
   .memExcptPacket_o             (memExcptPacket_o),
   .stCommitAddr_o               (stCommitAddr_o),

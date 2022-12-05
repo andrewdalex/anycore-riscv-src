@@ -10,4 +10,3 @@ LSUDatapath.sv
 LoadStoreUnit.sv
 STX_path.sv
 STX_path_structured.sv
-AtomicBuffer.sv

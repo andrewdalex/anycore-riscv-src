@@ -136,6 +136,7 @@ wire  [0:0]                        mem2dcInvWay;  // dcache invalidation way (un
 
 wire                            mem2dcStComplete;
 wire                            mem2dcStStall;
+logic mem2dcStCondSucc;
 
 wire                             anycore_int;
 
@@ -493,6 +494,7 @@ Core_OOO coreTop(
 
     .mem2dcStComplete_i                  (mem2dcStComplete ),
     .mem2dcStStall_i                     (mem2dcStStall    ),
+    .mem2dcStCondSucc_i (mem2dcStCondSucc),
 
     .dcScratchWrAddr_i                   (dcScratchWrAddr    ),
     .dcScratchWrEn_i                     (dcScratchWrEn      ),
@@ -672,6 +674,7 @@ Core_OOO coreTop(
 
         .mem2dc_stcomplete_o              (mem2dcStComplete),
         .mem2dc_ststall_o                 (mem2dcStStall),
+        .mem2dc_stcond_succ_o (mem2dcStCondSucc),
 
         .anycore_int_o                    (anycore_int)
     );

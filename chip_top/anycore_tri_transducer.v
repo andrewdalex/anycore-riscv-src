@@ -87,6 +87,7 @@ module anycore_tri_transducer(
 
     input                               dc2mem_stvalid_i,
     output reg                          mem2dc_stcomplete_o,
+    output reg                          mem2dc_stcond_succ_o,
     output                              mem2dc_ststall_o,
 
     output reg                          anycore_int_o
@@ -460,6 +461,7 @@ always @ * begin
     //state_next = `STATE_NORMAL;
     mem2ic_respvalid_o = 1'b0;
     mem2dc_stcomplete_o = 1'b0;
+    mem2dc_stcond_succ_o = 1'b0;
     mem2dc_ldvalid_o = 1'b0;
     signal_dcache_inval = 1'b0;
     signal_icache_inval = 1'b0;
@@ -487,9 +489,17 @@ always @ * begin
         end
         4'b1110: begin //atomic return type
             if (dc2memLdIsReserve_i) //stays asserted throughout duration of req
+            begin
               mem2dc_ldvalid_o = 1'b1;
+            end
             else // if not LR then it's SC
+            begin
               mem2dc_stcomplete_o = 1'b1;
+              if (l15_transducer_data_0_i == 0)
+                mem2dc_stcond_succ_o = 1'b1;
+            end
+              
+              
         end
         default: begin
             int_recv = 1'b0;
