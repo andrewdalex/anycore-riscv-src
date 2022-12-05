@@ -221,13 +221,25 @@ logic [`SIZE_LSQ_LOG:0] amoStqCount, amoLdqCount, nextAmoStqCount, nextAmoLdqCou
 logic isLoadReserve, isStoreConditional, nextIsLoadReserve, nextIsStoreConditional;
 memPkt memPacketDisp, amoMemPacket, nextMemPacketDisp, nextAmoMemPacket;
 
+logic [`DCACHE_ST_ADDR_BITS-1:0] memStAddr, nextMemStAddr, dc2memStAddr;
+logic [`SIZE_DATA-1:0] memStData, nextMemStData, dc2memStData;
+logic [2:0] memStSize, nextMemStSize, dc2memStSize;
+logic memStValid, nextMemStValid, dc2memStValid;
+
 assign stqCount_o                    = amoStqCount;
 assign ldqCount_o                    = amoLdqCount;
 
-localparam [1:0] NO_ACTIVE_AMO = 2'b00, WAIT_FOR_MEM_PKT = 2'b01, WAIT_FOR_DISPATCH = 2'b10, AMO_IN_FLIGHT = 2'b11;
+assign dc2memStAddr_o = memStAddr;
+assign dc2memStData_o = memStData;
+assign dc2memStSize_o = memStSize;
+assign dc2memStValid_o = memStValid;
+assign dc2memStIsConditional_o = isStoreConditional;
 
-logic [1:0] currentState, nextState;
+localparam [2:0] NO_ACTIVE_AMO = 3'b000, WAIT_FOR_LR_MEM_PKT = 3'b001, WAIT_FOR_LR_DISPATCH = 3'b010, LR_IN_FLIGHT = 3'b011,
+WAIT_FOR_SC_MEM_PKT = 3'b100, WAIT_FOR_SC_COMMIT = 3'b101, WAIT_FOR_SC_ST_COMPLETE = 3'b110, INTERCEPT_ST_REQ_WRITEBACK = 3'b111;
 
+logic [2:0] currentState, nextState;
+logic doStoreCommit, nextDoStoreCommit;
 
 always_ff @ (posedge clk or reset) begin
   if (reset)
@@ -250,6 +262,11 @@ always_ff @ (posedge clk or reset) begin
     amoStqCount <= nextAmoStqCount;
     amoLdqCount <= nextAmoLdqCount;
     currentState <= nextState;
+    // SC fields
+    memStAddr <= nextMemStAddr;
+    memStData <= nextMemStData;
+    memStSize <= nextMemStSize;
+    memStValid <= nextMemStValid;
   end
 end
 
@@ -261,15 +278,25 @@ always_comb begin
 	nextAmoStqCount = amoStqCount;
 	nextAmoLdqCount = amoLdqCount;
   nextState = currentState;
+  nextMemStAddr = memStAddr;
+  nextMemStData = memStData;
+  nextMemStSize = memStSize;
+  nextMemStValid = memStValid;
   
   case(currentState)
     NO_ACTIVE_AMO:
     begin
-      if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid)
+      if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid & lsqPacket_i[0].isLoad)
       begin
         nextAmoStqCount = `SIZE_LSQ;
         nextAmoLdqCount = `SIZE_LSQ;
-        nextState = WAIT_FOR_MEM_PKT;
+        nextState = WAIT_FOR_LR_MEM_PKT;
+      end
+      else if (lsqPacket_i[0].isAtom & lsqPacket_i[0].valid & lsqPacket_i[0].isStore)
+      begin
+        nextAmoStqCount = `SIZE_LSQ;
+        nextAmoLdqCount = `SIZE_LSQ;
+        nextState = WAIT_FOR_SC_MEM_PKT;
       end
       else // not dealing with an atomic op defaults
       begin
@@ -280,34 +307,92 @@ always_comb begin
         nextAmoStqCount = stqCount;
         nextAmoLdqCount = ldqCount;
         nextState = NO_ACTIVE_AMO;
+        nextMemStAddr = dc2memStAddr;
+        nextMemStData = dc2memStData;
+        nextMemStSize = dc2memStSize;
+        nextMemStValid = dc2memStValid;
       end
     end
     
-    WAIT_FOR_MEM_PKT:
+    WAIT_FOR_SC_MEM_PKT:
+    begin
+      if (memPacket_i.isAtom & memPacket_i.valid)
+      begin
+        nextAmoMemPacket = memPacket_i;
+      end // stay here until queue drains
+      
+      else if ((stqCount + ldqCount) == 1 & amoMemPacket.valid)
+      begin
+        nextState = WAIT_FOR_SC_COMMIT;
+        nextMemPacketDisp = amoMemPacket;
+      end
+      
+    end
+    
+    WAIT_FOR_SC_COMMIT:
+    begin
+        
+      if (commitStore_i[0])
+      begin
+        nextMemStAddr = amoMemPacket.address;
+        nextMemStData = amoMemPacket.src2Data;
+        nextMemStSize = amoMemPacket.ldstSize;
+        nextMemStValid = 1'b1;
+        nextIsStoreConditional = 1'b1;
+        nextMemPacketDisp = amoMemPacket;
+        nextState = WAIT_FOR_SC_ST_COMPLETE;
+      end
+      
+      if (recoverFlag_i)
+      begin
+        nextState = NO_ACTIVE_AMO;
+        //todo send recover flag down
+      end
+    end
+    
+    WAIT_FOR_SC_ST_COMPLETE:
+    begin
+      nextMemStValid = 1'b0;
+      if (mem2dcStComplete_i)
+      begin
+        nextDoStoreCommit = 1'b1;
+        nextState = INTERCEPT_ST_REQ_WRITEBACK;
+      end
+      // if mem to lsu atomic fails then set recover flag to clear queue,
+      // writeback 1 and go to amo_none state
+    end
+    
+    // INTERCEPT_ST_REQ_WRITEBACK:
+    // begin
+    //   if (dc2LSUStValid)
+    //   begin
+    //     nextLSU2dcStComplete = 1'b1;
+    //     nextState = NO_ACTIVE_AMO;
+    //   end
+    // end
+    
+    WAIT_FOR_LR_MEM_PKT:
     begin
       if (memPacket_i.isAtom & memPacket_i.valid)
       begin
         nextAmoMemPacket = memPacket_i;
         nextMemPacketDisp = 0;
-        nextState = WAIT_FOR_DISPATCH;
+        nextState = WAIT_FOR_LR_DISPATCH;
       end
     end
     
-    WAIT_FOR_DISPATCH:
+    WAIT_FOR_LR_DISPATCH:
     begin
       if ((stqCount + ldqCount) == 1)
       begin
         nextMemPacketDisp = amoMemPacket;
         nextAmoMemPacket = 0;
-        nextState = AMO_IN_FLIGHT;
-        if (amoMemPacket.amo_op == AMO_LR)
-          nextIsLoadReserve = 1'b1;
-        else
-          nextIsStoreConditional = 1'b1;
+        nextState = LR_IN_FLIGHT;
+        nextIsLoadReserve = 1'b1;
       end
     end
     
-    AMO_IN_FLIGHT:
+    LR_IN_FLIGHT:
     begin
       if (mem2dcLdValid_i)
       begin
@@ -403,11 +488,11 @@ LSUDatapath datapath (
   .mem2dcLdData_i               (mem2dcLdData_i     ), // requested data
   .mem2dcLdValid_i              (mem2dcLdValid_i    ), // indicates the requested data is ready
                                                    
-  .dc2memStAddr_o               (dc2memStAddr_o     ), // memory read address
-  .dc2memStData_o               (dc2memStData_o     ), // memory read address
-  .dc2memStSize_o               (dc2memStSize_o     ), // memory read address
-  .dc2memStValid_o              (dc2memStValid_o    ), // memory read enable
-  .dc2memStIsConditional_o(dc2memStIsConditional_o),
+  .dc2memStAddr_o               (dc2memStAddr     ), // memory read address
+  .dc2memStData_o               (dc2memStData     ), // memory read address
+  .dc2memStSize_o               (dc2memStSize     ), // memory read address
+  .dc2memStValid_o              (dc2memStValid    ), // memory read enable
+  .dc2memStIsConditional_o( ),
                                                    
   .mem2dcInv_i,     // dcache invalidation
   .mem2dcInvInd_i,  // dcache invalidation index
@@ -437,7 +522,7 @@ LSUDatapath datapath (
 	
 	.memPacket_i                  (memPacketDisp),
 	.ldIsReserve_i(isLoadReserve),
-	.stIsConditional_i(isStoreConditional),
+	.stIsConditional_i(1'b0),
 	.mshrFull_o(),
                                 
 	//inputs frm control          

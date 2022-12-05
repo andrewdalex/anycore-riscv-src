@@ -185,6 +185,10 @@ always @ * begin
     anycore_dc2mem_stsize_buf_next   = anycore_dc2mem_stsize_buf;
     anycore_load_full_addr_buf_next  = anycore_load_full_addr_buf;
     anycore_imiss_full_addr_buf_next  = anycore_imiss_full_addr_buf;
+    transducer_l15_amo_op_next = 4'b0000;
+    anycore_ld_is_reserve_next = 1'b0;
+    anycore_st_is_cond_next = 1'b0;
+    
     // L15 gets a request
     if (l15_transducer_ack_i) begin
         decoder_store_next = (decoder_store_reg == ISSUE) ? IDLE : decoder_store_reg;
@@ -201,7 +205,7 @@ always @ * begin
 	anycore_store_full_addr_buf_next = anycore_store_full_addr;
         anycore_dc2mem_stdata_flipped_buf_next   = anycore_dc2mem_stdata_flipped;
         anycore_dc2mem_stsize_buf_next   = dc2mem_stsize_i;
-        anycore_st_is_cond_next = anycore_st_is_cond;
+        anycore_st_is_cond_next = dc2memStIsConditional_i;
     end
     if (dc2mem_ldvalid_i) begin
         decoder_load_next = ARRIVE;
