@@ -396,6 +396,7 @@ always_comb begin
     INTERCEPT_ST_REQ_WRITEBACK:
     begin
       nextControlCommitSt = 0;
+      nextWbPacket = 0; // keep preventing writeback until atomic completes
       if (dc2memStValid)
       begin
         nextLsu2dcStComplete = 1'b1;

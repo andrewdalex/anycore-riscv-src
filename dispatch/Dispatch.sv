@@ -173,20 +173,6 @@ begin
 end
 
 
-logic amoStall;
-always_comb
-begin
-	if (reset | (loadQueueCnt_i == 0 & storeQueueCnt_i == 0)) amoStall = 0;
-	else 
-	begin
-		if (disPacket_i[0].isAtom) 
-			amoStall = 1;
-		else
-			amoStall = 0;
-	end
-end
-
-
 /***********************************************************************************
 * Check for room in LDQ, STQ, IQ and AL for new instructions.
 ***********************************************************************************/
@@ -263,7 +249,7 @@ assign dispatchReady_o    = ~stall & renameReady_i;
 
 /* Stalls IB and Rename */
 // only stall frontend on atomic op so that LSQ drains
-assign backEndFull_o      = stall | amoStall;
+assign backEndFull_o      = stall;
 
 
 /***********************************************************************************
