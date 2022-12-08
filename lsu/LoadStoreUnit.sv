@@ -209,7 +209,7 @@ wire [`SIZE_LSQ_LOG-1:0]               stqHead;
 wire [`SIZE_LSQ_LOG:0]                 stqCount;
 wire [`SIZE_LSQ_LOG:0]                 ldqCount;
 wire [`COMMIT_WIDTH_LOG:0]             commitLdCount;
-wire                                   commitSt;
+logic                                  commitSt;
 reg  [`SIZE_LSQ_LOG-1:0]               ldqID [0:`DISPATCH_WIDTH-1];
 reg  [`SIZE_LSQ_LOG-1:0]               stqID [0:`DISPATCH_WIDTH-1];
 reg  [`SIZE_LSQ_LOG-1:0]               commitLdIndex [0:`COMMIT_WIDTH-1];
@@ -230,6 +230,7 @@ logic [`DCACHE_ST_ADDR_BITS-1:0] memStAddr, nextMemStAddr, dc2memStAddr;
 logic [`SIZE_DATA-1:0] memStData, nextMemStData, dc2memStData;
 logic [2:0] memStSize, nextMemStSize, dc2memStSize;
 logic memStValid, nextMemStValid, dc2memStValid;
+logic [`COMMIT_WIDTH-1:0] controlCommitSt, nextControlCommitSt;
 
 assign stqCount_o                    = amoStqCount;
 assign ldqCount_o                    = amoLdqCount;
@@ -241,11 +242,18 @@ assign dc2memStSize_o = memStSize;
 assign dc2memStValid_o = memStValid;
 assign dc2memStIsConditional_o = isStoreConditional;
 
-localparam [2:0] NO_ACTIVE_AMO = 3'b000, WAIT_FOR_LR_MEM_PKT = 3'b001, WAIT_FOR_LR_DISPATCH = 3'b010, LR_IN_FLIGHT = 3'b011,
-WAIT_FOR_SC_MEM_PKT = 3'b100, WAIT_FOR_SC_COMMIT = 3'b101, WAIT_FOR_SC_ST_COMPLETE = 3'b110, INTERCEPT_ST_REQ_WRITEBACK = 3'b111;
-
-logic [2:0] currentState, nextState;
-logic doStoreCommit, nextDoStoreCommit;
+typedef enum {
+  NO_ACTIVE_AMO,
+  WAIT_FOR_LR_MEM_PKT,
+  WAIT_FOR_LR_DISPATCH,
+  LR_IN_FLIGHT,
+  WAIT_FOR_SC_MEM_PKT,
+  WAIT_FOR_SC_COMMIT,
+  WAIT_FOR_SC_ST_COMPLETE,
+  INTERCEPT_ST_REQ_WRITEBACK} amo_states;
+  
+amo_states currentState, nextState;
+logic lsu2dcStComplete, nextLsu2dcStComplete;
 
 always_ff @ (posedge clk or reset) begin
   if (reset)
@@ -258,6 +266,9 @@ always_ff @ (posedge clk or reset) begin
     amoLdqCount <= 0;
     currentState <= NO_ACTIVE_AMO;
     wbPacket <= 0;
+    controlCommitSt <= 0;
+    lsu2dcStComplete <= 0;
+    
   end
 
   else
@@ -275,6 +286,8 @@ always_ff @ (posedge clk or reset) begin
     memStSize <= nextMemStSize;
     memStValid <= nextMemStValid;
     wbPacket <= nextWbPacket;
+    controlCommitSt <= nextControlCommitSt;
+    lsu2dcStComplete <= nextLsu2dcStComplete;
   end
 end
 
@@ -291,6 +304,8 @@ always_comb begin
   nextMemStSize = memStSize;
   nextMemStValid = memStValid;
   nextWbPacket = lsuWbPkt;
+  nextControlCommitSt = commitStore_i;
+  nextLsu2dcStComplete = mem2dcStComplete_i;
   
   case(currentState)
     NO_ACTIVE_AMO:
@@ -332,27 +347,17 @@ always_comb begin
       
       else if ((stqCount + ldqCount) == 1 & amoMemPacket.valid)
       begin
-        nextState = WAIT_FOR_SC_COMMIT;
+        nextMemStAddr = amoMemPacket.address;
+        nextMemStData = amoMemPacket.src2Data;
+        nextMemStSize = amoMemPacket.ldstSize;
+        nextMemStValid = 1'b1;
+        nextIsStoreConditional = 1'b1;
+        
+        // prevent the LSU from generating a writeback
+        // because we want to do this manually
+        nextWbPacket = 0;
+        nextState = WAIT_FOR_SC_ST_COMPLETE;
       end
-      
-    end
-    
-    WAIT_FOR_SC_COMMIT:
-    begin
-      // assume always commit
-      nextMemStAddr = amoMemPacket.address;
-      nextMemStData = amoMemPacket.src2Data;
-      nextMemStSize = amoMemPacket.ldstSize;
-      nextMemStValid = 1'b1;
-      nextIsStoreConditional = 1'b1;
-      nextMemPacketDisp = amoMemPacket;
-      nextState = WAIT_FOR_SC_ST_COMPLETE;
-      
-      // if (recoverFlag_i)
-      // begin
-      //   nextState = NO_ACTIVE_AMO;
-      //   //todo send recover flag down
-      // end
     end
     
     WAIT_FOR_SC_ST_COMPLETE:
@@ -360,21 +365,43 @@ always_comb begin
       nextMemStValid = 1'b0;
       if (mem2dcStComplete_i)
       begin
-        nextDoStoreCommit = 1'b1;
-        nextState = INTERCEPT_ST_REQ_WRITEBACK;
+        nextWbPacket.seqNo = amoMemPacket.seqNo;
+        nextWbPacket.flags = amoMemPacket.flags;
+        nextWbPacket.alID = amoMemPacket.alID;
+        nextWbPacket.valid = 1'b1;
+        nextWbPacket.phyDest = amoMemPacket.phyDest;
+
+        if (mem2dcStCondSucc_i)
+        begin
+          nextMemPacketDisp = amoMemPacket;
+          nextWbPacket.destData = 0;
+          nextState = WAIT_FOR_SC_COMMIT;
+        end
+        else
+        begin
+          nextWbPacket.destData = 1;
+          nextState = NO_ACTIVE_AMO;
+        end
+          
       end
-      // if mem to lsu atomic fails then set recover flag to clear queue,
-      // writeback 1 and go to amo_none state
     end
     
-    // INTERCEPT_ST_REQ_WRITEBACK:
-    // begin
-    //   if (dc2LSUStValid)
-    //   begin
-    //     nextLSU2dcStComplete = 1'b1;
-    //     nextState = NO_ACTIVE_AMO;
-    //   end
-    // end
+    WAIT_FOR_SC_COMMIT:
+    begin
+      nextWbPacket = 0;
+      nextControlCommitSt = 1;
+      nextState = INTERCEPT_ST_REQ_WRITEBACK;
+    end
+    
+    INTERCEPT_ST_REQ_WRITEBACK:
+    begin
+      nextControlCommitSt = 0;
+      if (dc2memStValid)
+      begin
+        nextLsu2dcStComplete = 1'b1;
+        nextState = NO_ACTIVE_AMO;
+      end
+    end
     
     WAIT_FOR_LR_MEM_PKT:
     begin
@@ -399,12 +426,12 @@ always_comb begin
     
     LR_IN_FLIGHT:
     begin
+      nextMemPacketDisp = 0;
       if (mem2dcLdValid_i)
       begin
         nextAmoStqCount = stqCount;
         nextAmoLdqCount = ldqCount;
         nextIsLoadReserve = 1'b0;
-        nextMemPacketDisp = 1'b0;
         nextState = NO_ACTIVE_AMO;
       end
     end
@@ -429,7 +456,7 @@ LSUControl control (
 	.dispatchReady_i                     (dispatchReady_i),
                                        
 	.commitLoad_i                        (commitLoad_i),
-	.commitStore_i                       (commitStore_i),
+	.commitStore_i                       (controlCommitSt),
                                        
 	.lsqPacket_i                         (lsqPacket_i),
 	.lsqID_o                             (lsqID_o),
@@ -503,7 +530,7 @@ LSUDatapath datapath (
   .mem2dcInvInd_i,  // dcache invalidation index
   .mem2dcInvWay_i,  // dcache invalidation way (unusedndex
 
-  .mem2dcStComplete_i           (mem2dcStComplete_i ),
+  .mem2dcStComplete_i           (lsu2dcStComplete),
   .mem2dcStStall_i              (mem2dcStStall_i    ),
 
   .stallStCommit_o              (stallStCommit_o    ),
