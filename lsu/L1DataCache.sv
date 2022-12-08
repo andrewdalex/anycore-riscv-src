@@ -40,7 +40,6 @@ module L1DataCache(
 	
 	// proc to/from cache for atomics
   input                               ldIsReserve_i,
-  input                               stIsConditional_i,
   output                              mshrFull_o,
 
   // memory-to-cache interface for Loads
@@ -54,7 +53,6 @@ module L1DataCache(
   output [`SIZE_DATA-1:0]             dc2memStData_o,  // memory read address
   output [2:0]                        dc2memStSize_o,  // memory read address
   output reg                          dc2memStValid_o, // memory read enable
-  output dc2memStIsConditional_o,
 
   input                               mem2dcInv_i,     // dcache invalidation
   input  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd_i,  // dcache invalidation index
@@ -146,8 +144,6 @@ reg  [7:0]                             stEn; // LOG_SIZE_DATA - 1 = 7
     .stAddr_i(wrAddr_i),
     .stSize_i(stSize_i),
     .stData_i(wrData_i), 
-    .stIsConditional_i(stIsConditional_i),
-    .dc2memStIsConditional_o(dc2memStIsConditional_o),
     //.stByteEn_i(stEn), 
     .stHit_o(wrHitCache),
     

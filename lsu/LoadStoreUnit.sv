@@ -524,7 +524,6 @@ LSUDatapath datapath (
   .dc2memStData_o               (dc2memStData     ), // memory read address
   .dc2memStSize_o               (dc2memStSize     ), // memory read address
   .dc2memStValid_o              (dc2memStValid    ), // memory read enable
-  .dc2memStIsConditional_o( ),
                                                    
   .mem2dcInv_i,     // dcache invalidation
   .mem2dcInvInd_i,  // dcache invalidation index
@@ -554,7 +553,6 @@ LSUDatapath datapath (
 	
 	.memPacket_i                  (memPacketDisp),
 	.ldIsReserve_i(isLoadReserve),
-	.stIsConditional_i(1'b0),
 	.mshrFull_o(),
                                 
 	//inputs frm control          
