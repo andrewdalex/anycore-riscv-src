@@ -88,6 +88,7 @@ module InstBufRename(
           renPacket_o[i].isMret        = 1'b0;
           renPacket_o[i].SkipIQ        = 1'b0;
           renPacket_o[i].predDir       = 1'b0;
+          renPacket_o[i].isAtom        = 1'b0;
         end
       end
 

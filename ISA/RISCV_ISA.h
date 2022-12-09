@@ -103,6 +103,7 @@
 `define OP_LOAD_FP          7'h07
 `define OP_STORE_FP         7'h27
 `define OP_MISC_MEM         7'h0f
+`define OP_ATOM             7'h2f
 
 /* Minor OPCODE specified by funct3 */
 `define FN3_BEQ             3'h0
@@ -201,7 +202,9 @@
 `define FN5_FCVT_I2FP       5'h1a
 `define FN5_FMV_I2FP        5'h1e
 
-
+/* Minor OPCODE specified by funct5 for Atomic instrs */
+`define FN5_LR              5'h02
+`define FN5_SC              5'h03
 /* Minor OPCODE specified by funct12 for SYSTEM insns */
 `define FN12_SCALL          12'h000
 `define FN12_SBREAK         12'h001

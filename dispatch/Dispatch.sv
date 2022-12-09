@@ -167,7 +167,7 @@ begin
 //	  storeCnt = storeCnt + (disPacket_i[i].isStore & dispatchLaneActive_i[i]); 
 //`else    
   	loadCnt  = loadCnt  + disPacket_i[i].isLoad; 
-	  storeCnt = storeCnt + disPacket_i[i].isStore; 
+	storeCnt = storeCnt + disPacket_i[i].isStore; 
 //`endif    
 	end
 end
@@ -248,6 +248,7 @@ ExePipeScheduler exePipeSched (
 assign dispatchReady_o    = ~stall & renameReady_i;
 
 /* Stalls IB and Rename */
+// only stall frontend on atomic op so that LSQ drains
 assign backEndFull_o      = stall;
 
 
@@ -284,6 +285,8 @@ begin
     iqPacket_o[i].alID         = alID_i[i];
 		iqPacket_o[i].isLoad       = disPacket_i[i].isLoad;
 		iqPacket_o[i].isStore      = disPacket_i[i].isStore;
+		iqPacket_o[i].isAtom       = disPacket_i[i].isAtom;
+		iqPacket_o[i].amo_op       = disPacket_i[i].amo_op;
 		iqPacket_o[i].isCSR        = disPacket_i[i].isCSR;
 		iqPacket_o[i].ldstSize     = disPacket_i[i].ldstSize;
 		iqPacket_o[i].isSimple     = isSimple[i];
@@ -318,6 +321,8 @@ begin
 		alPacket_o[i].phyDestValid   = disPacket_i[i].phyDestValid;
 		alPacket_o[i].isLoad         = disPacket_i[i].isLoad;
 		alPacket_o[i].isStore        = disPacket_i[i].isStore;
+		alPacket_o[i].isAtom         = disPacket_i[i].isAtom;
+		alPacket_o[i].amo_op         = disPacket_i[i].amo_op;
 		alPacket_o[i].isCSR          = disPacket_i[i].isCSR;
 		alPacket_o[i].isScall        = disPacket_i[i].isScall;
 		alPacket_o[i].isSbreak       = disPacket_i[i].isSbreak;
@@ -394,6 +399,7 @@ begin
 		lsqPacket_o[i].isStore     = disPacket_i[i].isStore;
 		lsqPacket_o[i].valid       = disPacket_i[i].valid & ~stall & ~disPacket_i[i].exception; // Do not write to LSQ if exception
 //`endif
+		lsqPacket_o[i].isAtom 	   = disPacket_i[i].isAtom;
 	end
 end
 

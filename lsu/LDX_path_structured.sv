@@ -40,7 +40,7 @@ module LDX_path_structured (
   // cache-to-memory interface for Loads
   output [`DCACHE_BLOCK_ADDR_BITS-1:0] dc2memLdAddr_o,  // memory read address
   output reg                          dc2memLdValid_o, // memory read enable
-
+  output dc2memLdIsReserve_o,
   // memory-to-cache interface for Loads
   input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,       // tag of the incoming datadetermine
   input  [`DCACHE_INDEX_BITS-1:0]     mem2dcLdIndex_i,     // index of the incoming data
@@ -86,6 +86,8 @@ module LDX_path_structured (
 	//input  memPkt                       memPacket_i,
 	input  memPkt                       ldPacket_i,
 	input  memPkt                       stPacket_i,
+	input                               ldIsReserve_i,
+  output                              mshrFull_o,
 
 	input                               commitSt_i,
 	input  [`SIZE_LSQ_LOG-1:0]          stqHead_i,
@@ -189,7 +191,7 @@ L1DataCache L1dCache (
  
   .dc2memLdAddr_o             (dc2memLdAddr_o     ), // memory read address
   .dc2memLdValid_o            (dc2memLdValid_o    ), // memory read enable
-                                                 
+  .dc2memLdIsReserve_o(dc2memLdIsReserve_o),                                               
   .mem2dcLdTag_i              (mem2dcLdTag_i      ), // tag of the incoming datadetermine
   .mem2dcLdIndex_i            (mem2dcLdIndex_i    ), // index of the incoming data
   .mem2dcLdData_i             (mem2dcLdData_i     ), // requested data
@@ -227,6 +229,8 @@ L1DataCache L1dCache (
 	.ldSign_i                   (ldPacket_i.flags.ldSign),
 	.rdHit_o                    (readHit),
 	.rdData_o                   (dcacheData),
+	.ldIsReserve_i(ldIsReserve_i),
+	.mshrFull_o(mshrFull_o),
 
 	.wrEn_i                     (commitSt_i),
 	.wrAddr_i                   (stCommitAddr),

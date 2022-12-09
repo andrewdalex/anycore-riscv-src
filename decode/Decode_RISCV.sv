@@ -74,6 +74,8 @@ reg                                     instMret_0;
 reg                                     instSkipIQ_0;
 reg [`EXCEPTION_CAUSE_LOG-1:0]               instExceptionCause_0; 
 reg                                     instException_0;
+reg                                     instAtom_0;
+reg [3:0]                               instAmoOp_0;
 
 always_comb
 begin
@@ -93,6 +95,8 @@ begin
     ibPacket0_o.immedValid     = instImmediate_0[0];
     ibPacket0_o.isLoad         = instLoad_0;
     ibPacket0_o.isStore        = instStore_0;
+    ibPacket0_o.isAtom         = instAtom_0;
+    ibPacket0_o.amo_op         = instAmoOp_0;
     ibPacket0_o.isCSR          = instCSR_0;
     ibPacket0_o.isScall        = instScall_0;
     ibPacket0_o.isSbreak       = instSbreak_0;
@@ -162,7 +166,8 @@ begin
   instMret_0       = 0;
   instExceptionCause_0    = 0;
   instException_0    = 0;
-
+  instAtom_0 = 0;
+  instAmoOp_0 = 4'b0000;
   instLogical1_0   = {instruction[`RS1_HI:`RS1_LO],1'b0};
   instLogical2_0   = {instruction[`RS2_HI:`RS2_LO],1'b0};
   instDest_0       = {instruction[`RD_HI:`RD_LO],1'b0};
@@ -200,6 +205,31 @@ begin
           instImmediate_0    = {U_imm,1'b1};
           instFU_0           = `SIMPLE_TYPE;
         end
+
+
+ `OP_ATOM: begin
+    case(instFunct5)
+      `FN5_LR: begin
+        instLogical1_0[0]  = 1'b1;
+        instDest_0[0]      = 1'b1;
+        instFU_0           = `MEMORY_TYPE;
+        instLoad_0         = 1'b1;
+        instAtom_0         = 1'b1;
+        instAmoOp_0        = AMO_LR;
+      end
+
+      `FN5_SC: begin
+        instLogical1_0[0]  = 1'b1;
+        instLogical2_0[0]  = 1'b1;
+        instDest_0[0]      = 1'b1;
+        instFU_0           = `MEMORY_TYPE;
+        instStore_0        = 1'b1;
+        instAtom_0         = 1'b1;
+        instAmoOp_0        = AMO_SC;
+      end
+    endcase
+  end
+
 
  `OP_LOAD : begin
           instLogical1_0[0]  = 1'b1;
@@ -241,7 +271,7 @@ begin
           instImmediate_0    = {I_imm,1'b1};
           instFU_0           = `SIMPLE_TYPE;
         end
-   
+
  `OP_OP_IMM_32: begin
           instLogical1_0[0]  = 1'b1;
           instDest_0[0]      = 1'b1;
@@ -275,11 +305,11 @@ begin
 
  `OP_OP_FP: begin
           case (instFunct5)
-            `FN5_FADD,    
-            `FN5_FSUB,    
-            `FN5_FMUL,    
+            `FN5_FADD,
+            `FN5_FSUB,
+            `FN5_FMUL,
             `FN5_FDIV,
-            `FN5_FSGNJ,    
+            `FN5_FSGNJ,
             `FN5_FMIN_MAX:
              begin
                 instLogical1_0[`SIZE_RMT_LOG:1] = instruction[`RS1_HI:`RS1_LO] + 32; //Offset for FP reg namespace

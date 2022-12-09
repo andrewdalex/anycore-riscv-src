@@ -115,6 +115,7 @@ wire  [0:0]                        mem2icInvWay;     // icache invalidation way 
 // cache-to-memory interface for Loads
 wire [`DCACHE_BLOCK_ADDR_BITS-1:0] dc2memLdAddr;  // memory read address
 wire                               dc2memLdValid; // memory read enable
+logic dc2memLdIsReserve;
 
 // memory-to-cache interface for Loads
 wire [`DCACHE_TAG_BITS-1:0]     mem2dcLdTag;       // tag of the incoming datadetermine
@@ -127,6 +128,7 @@ wire [`DCACHE_ST_ADDR_BITS-1:0]  dc2memStAddr;
 wire [`SIZE_DATA-1:0]            dc2memStData;
 wire [2:0]                       dc2memStSize;
 wire                             dc2memStValid;
+logic dc2memStIsConditional;
 
 wire                               mem2dcInv;     // dcache invalidation
 wire  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd;  // dcache invalidation index
@@ -134,6 +136,7 @@ wire  [0:0]                        mem2dcInvWay;  // dcache invalidation way (un
 
 wire                            mem2dcStComplete;
 wire                            mem2dcStStall;
+logic mem2dcStCondSucc;
 
 wire                             anycore_int;
 
@@ -472,6 +475,7 @@ Core_OOO coreTop(
   
     .dc2memLdAddr_o                      (dc2memLdAddr     ), // memory read address
     .dc2memLdValid_o                     (dc2memLdValid    ), // memory read enable
+    .dc2memLdIsReserve_o (dc2memLdIsReserve),
                                                             
     .mem2dcLdTag_i                       (mem2dcLdTag      ), // tag of the incoming datadetermine
     .mem2dcLdIndex_i                     (mem2dcLdIndex    ), // index of the incoming data
@@ -482,6 +486,7 @@ Core_OOO coreTop(
     .dc2memStData_o                      (dc2memStData     ), // memory read address
     .dc2memStSize_o                      (dc2memStSize     ), // memory read address
     .dc2memStValid_o                     (dc2memStValid    ), // memory read enable
+    .dc2memStIsConditional_o (dc2memStIsConditional),
                                                             
     .mem2dcInv_i                         (mem2dcInv        ),     // dcache invalidation
     .mem2dcInvInd_i                      (mem2dcInvInd     ),  // dcache invalidation index
@@ -489,6 +494,7 @@ Core_OOO coreTop(
 
     .mem2dcStComplete_i                  (mem2dcStComplete ),
     .mem2dcStStall_i                     (mem2dcStStall    ),
+    .mem2dcStCondSucc_i (mem2dcStCondSucc),
 
     .dcScratchWrAddr_i                   (dcScratchWrAddr    ),
     .dcScratchWrEn_i                     (dcScratchWrEn      ),
@@ -585,9 +591,7 @@ Core_OOO coreTop(
 //  
 //`endif
 
-
-    // not supported at the moment
-    assign transducer_l15_amo_op = `L15_AMO_OP_NONE;
+    
     anycore_tri_transducer tri_transducer(
         .clk                               (clk),
         .rst_n                             (rst_n),
@@ -600,12 +604,15 @@ Core_OOO coreTop(
 
         .dc2mem_ldaddr_i                   (dc2memLdAddr),
         .dc2mem_ldvalid_i                  (dc2memLdValid),
+        .dc2memLdIsReserve_i (dc2memLdIsReserve),
 
         .dc2mem_staddr_i                   (dc2memStAddr),
         .dc2mem_stdata_i                   (dc2memStData),
         .dc2mem_stsize_i                   (dc2memStSize),
         .dc2mem_stvalid_i                  (dc2memStValid),
+        .dc2memStIsConditional_i (dc2memStIsConditional),
 
+        .transducer_l15_amo_op_o (transducer_l15_amo_op),
         .transducer_l15_rqtype_o               (transducer_l15_rqtype),
         .transducer_l15_nc_o                   (transducer_l15_nc),
         .transducer_l15_size_o                 (transducer_l15_size),
@@ -667,6 +674,7 @@ Core_OOO coreTop(
 
         .mem2dc_stcomplete_o              (mem2dcStComplete),
         .mem2dc_ststall_o                 (mem2dcStStall),
+        .mem2dc_stcond_succ_o (mem2dcStCondSucc),
 
         .anycore_int_o                    (anycore_int)
     );

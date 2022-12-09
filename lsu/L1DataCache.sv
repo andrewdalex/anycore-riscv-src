@@ -36,6 +36,11 @@ module L1DataCache(
   // cache-to-memory interface for Loads
   output [`DCACHE_BLOCK_ADDR_BITS-1:0]  dc2memLdAddr_o,  // memory read address
   output reg                          dc2memLdValid_o, // memory read enable
+  output dc2memLdIsReserve_o,
+	
+	// proc to/from cache for atomics
+  input                               ldIsReserve_i,
+  output                              mshrFull_o,
 
   // memory-to-cache interface for Loads
   input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,       // tag of the incoming datadetermine
@@ -130,7 +135,10 @@ reg  [7:0]                             stEn; // LOG_SIZE_DATA - 1 = 7
     .ldSign_i(ldSign_i),
     .ldData_o(rdDataCache),
     .ldHit_o(rdHitCache),
-    .ldDataValid_o(),
+    .ldDataValid_o(ldDataValid_o),
+    .ldIsReserve_i(ldIsReserve_i),
+		.dc2memLdIsReserve_o(dc2memLdIsReserve_o),
+    .mshrFull_o(mshrFull_o),
     
     .stEn_i(wrEn_i),
     .stAddr_i(wrAddr_i),

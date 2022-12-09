@@ -78,6 +78,7 @@ module Core_OOO(
   // cache-to-memory interface for Loads
   output [`DCACHE_BLOCK_ADDR_BITS-1:0]dc2memLdAddr_o,  // memory read address
   output reg                          dc2memLdValid_o, // memory read enable
+  output dc2memLdIsReserve_o,
 
   // memory-to-cache interface for Loads
   input  [`DCACHE_TAG_BITS-1:0]       mem2dcLdTag_i,       // tag of the incoming datadetermine
@@ -90,6 +91,7 @@ module Core_OOO(
   output [`SIZE_DATA-1:0]             dc2memStData_o,  // memory read address
   output [2:0]                        dc2memStSize_o,  // memory read address
   output reg                          dc2memStValid_o, // memory read enable
+  output dc2memStIsConditional_o,
 
   input                               mem2dcInv_i,     // dcache invalidation
   input  [`DCACHE_INDEX_BITS-1:0]     mem2dcInvInd_i,  // dcache invalidation index
@@ -98,6 +100,7 @@ module Core_OOO(
   // memory-to-cache interface for stores
   input                               mem2dcStComplete_i,
   input                               mem2dcStStall_i,
+  input mem2dcStCondSucc_i,
 
   input  [1:0]                        irq_i,      // level sensitive IR lines, mip & sip (async)
   input                               ipi_i,      // software interrupt (a.k.a inter-process-interrupt)
@@ -807,6 +810,7 @@ InstructionBuffer instBuf (
   // Moreover the size is not being reconfigured and flush is not needed.
 	.flush_i              (recoverFlag | exceptionFlag | resetFetch_i),  
 	.commitCsr_i          (commitCsr),
+	.commitAmoOp_i        (1'b0), // TODO change once amo is finished
 
 	.decodeReady_i        (decodeReady),
 
@@ -984,7 +988,6 @@ Dispatch dispatch (
   // When high, indicates a packet is being dispatched this cycle.
 	.dispatchReady_o       (dispatchReady),
 	.backEndFull_o         (backEndFull)
-	//.stallForCsr_o         (stallForCsr)
 );
 
 
@@ -1608,6 +1611,7 @@ LSU lsu (
 
   .dc2memLdAddr_o       (dc2memLdAddr_o     ), // memory read address
   .dc2memLdValid_o      (dc2memLdValid_o    ), // memory read enable
+  .dc2memLdIsReserve_o (dc2memLdIsReserve_o),
                                            
   .mem2dcLdTag_i        (mem2dcLdTag_i      ), // tag of the incoming datadetermine
   .mem2dcLdIndex_i      (mem2dcLdIndex_i    ), // index of the incoming data
@@ -1618,6 +1622,7 @@ LSU lsu (
   .dc2memStData_o       (dc2memStData_o     ), // memory read address
   .dc2memStSize_o       (dc2memStSize_o     ), // memory read address
   .dc2memStValid_o      (dc2memStValid_o    ), // memory read enable
+  .dc2memStIsConditional_o (dc2memStIsConditional_o),
                                            
   .mem2dcInv_i,     // dcache invalidation
   .mem2dcInvInd_i,  // dcache invalidation index
@@ -1625,6 +1630,7 @@ LSU lsu (
 
   .mem2dcStComplete_i   (mem2dcStComplete_i ),
   .mem2dcStStall_i      (mem2dcStStall_i    ),
+  .mem2dcStCondSucc_i (mem2dcStCondSucc_i),
 
   .stallStCommit_o      (stallStCommit    ),
 

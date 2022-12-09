@@ -133,6 +133,8 @@ begin
 	memPacket_o.lsqID                 = exePacket_i.lsqID;
 	memPacket_o.alID                  = exePacket_i.alID;
 	memPacket_o.valid                 = exePacket_i.valid;
+    memPacket_o.isAtom                = exePacket_i.isAtom;
+    memPacket_o.amo_op                = exePacket_i.amo_op;
 end
 
 

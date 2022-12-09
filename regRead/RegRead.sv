@@ -74,6 +74,8 @@ begin
 	exePacket_l0.ctiID        = rrPacket_i.ctiID;
 	exePacket_l0.isSimple     = rrPacket_i.isSimple;
 	exePacket_l0.isFP     	  = rrPacket_i.isFP;	//Changes: Mohit (Added missing copy statement from rrPacket to exePacket)
+	exePacket_l0.isAtom		  = rrPacket_i.isAtom;
+	exePacket_l0.amo_op		  = rrPacket_i.amo_op;
 	exePacket_l0.isCSR        = rrPacket_i.isCSR;
 	exePacket_l0.isFP         = rrPacket_i.isFP;
 	exePacket_l0.ctrlType     = rrPacket_i.ctrlType;
@@ -161,6 +163,8 @@ begin
 	exePacket_o.valid         = exePacket_l3.valid;
 	exePacket_o.ctiID         = exePacket_l3.ctiID;
 	exePacket_o.isSimple      = exePacket_l3.isSimple;
+	exePacket_o.isAtom		  = exePacket_l3.isAtom;
+	exePacket_o.amo_op 		  = exePacket_l3.amo_op;
 	exePacket_o.isCSR         = exePacket_l3.isCSR;   
 	exePacket_o.isFP          = exePacket_l3.isFP;    
 	exePacket_o.ctrlType      = exePacket_l3.ctrlType;
